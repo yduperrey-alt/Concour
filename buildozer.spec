@@ -8,7 +8,7 @@ source.include_exts = py,png,jpg,kv,atlas
 
 version = 1.0
 
-requirements = python3,kivy,feedparser
+requirements = python3,kivy,feedparser==6.0.11
 
 orientation = portrait
 fullscreen = 0
