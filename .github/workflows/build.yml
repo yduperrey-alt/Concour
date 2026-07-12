@@ -17,6 +17,12 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Forcer Java 17 (requis par le plugin Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Installer les dépendances système
         run: |
           sudo apt-get update
