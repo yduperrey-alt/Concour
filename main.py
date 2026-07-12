@@ -20,6 +20,7 @@ from kivy.uix.label import Label
 from kivy.uix.checkbox import CheckBox
 from kivy.uix.popup import Popup
 from kivy.utils import platform
+from kivy.metrics import dp
 
 FICHIER_SUPPRIMES = "concours_supprimes.json"
 
@@ -140,7 +141,7 @@ class ConcoursFinderApp(App):
     def build(self):
         self.title = "Concours Finder"
         self.supprimes = charger_supprimes()
-        root = BoxLayout(orientation="vertical", padding=10, spacing=10)
+        root = BoxLayout(orientation="vertical", padding=(dp(10), dp(45), dp(10), dp(10)), spacing=10)
 
         header = BoxLayout(orientation="horizontal", size_hint=(1, None), height=50, spacing=10)
         self.bouton_recherche = Button(text="Rechercher les concours")
