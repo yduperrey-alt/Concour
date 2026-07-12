@@ -18,7 +18,7 @@ android.permissions = INTERNET
 
 # API Android cibles (ajuste si besoin)
 android.api = 33
-android.minapi = 21
+android.minapi = 26
 android.ndk = 25b
 android.archs = arm64-v8a, armeabi-v7a
 
