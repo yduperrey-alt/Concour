@@ -26,8 +26,8 @@ FICHIER_SUPPRIMES = "concours_supprimes.json"
 
 # --- 1. Sources RSS ---
 FLUX_RSS = [
-    "http://www.grattweb.fr/rss/rss.xml",
-    "http://www.grattweb.fr/rss/rss_etranger.xml",
+    "https://www.grattweb.fr/rss/rss.xml",
+    "https://www.grattweb.fr/rss/rss_etranger.xml",
     "https://www.concours.fr/feed/",
     "https://news.google.com/rss/search?q=%22jeux%20concours%22%20gratuit&hl=fr&gl=FR&ceid=FR:fr",
 ]
@@ -94,7 +94,10 @@ def recuperer_concours():
 
     for url in FLUX_RSS:
         try:
-            flux = feedparser.parse(url)
+            flux = feedparser.parse(
+                url,
+                agent="Mozilla/5.0 (Linux; Android 14; Mobile) ConcoursFinder/1.0"
+            )
         except Exception:
             continue
         for entree in flux.entries:
