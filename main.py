@@ -6,9 +6,17 @@ et affiche la liste dans une interface tactile.
 
 import json
 import os
+import ssl
 import threading
+import certifi
 import feedparser
 from datetime import datetime, timezone
+
+# Sur Android, Python n'a pas accès aux certificats CA du système : on force
+# l'utilisation du magasin de certificats fourni par le paquet "certifi".
+ssl._create_default_https_context = lambda *args, **kwargs: ssl.create_default_context(
+    cafile=certifi.where()
+)
 
 from kivy.app import App
 from kivy.clock import mainthread
