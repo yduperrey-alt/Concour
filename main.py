@@ -233,22 +233,44 @@ class ConcoursFinderApp(App):
         self.bouton_recherche.disabled = False
 
     def _ajouter_ligne_concours(self, i, c):
-        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, height=70, spacing=8)
+        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=10,
+                           padding=(dp(6), dp(8), dp(6), dp(8)))
 
-        case = CheckBox(size_hint=(None, None), size=(40, 40))
+        # Alternance de couleur de fond pour distinguer les lignes
+        with ligne.canvas.before:
+            from kivy.graphics import Color, Rectangle
+            couleur = (0.16, 0.16, 0.16, 1) if i % 2 == 0 else (0.10, 0.10, 0.10, 1)
+            Color(*couleur)
+            rect = Rectangle(pos=ligne.pos, size=ligne.size)
+        ligne.bind(pos=lambda inst, val: setattr(rect, "pos", inst.pos))
+        ligne.bind(size=lambda inst, val: setattr(rect, "size", inst.size))
+
+        case = CheckBox(size_hint=(None, 1), width=dp(44))
         case.bind(active=lambda inst, valeur, lien=c["lien"], ligne=ligne:
                   self._supprimer_concours(lien, ligne) if valeur else None)
-        case_wrap = BoxLayout(size_hint=(None, 1), width=50)
-        case_wrap.add_widget(case)
-        ligne.add_widget(case_wrap)
+        ligne.add_widget(case)
 
         item = Button(
-            text=f"[{c['score']} pts] {i}. {c['titre']}",
+            text=f"[{c['score']} pts]  {i}. {c['titre']}",
             halign="left",
             valign="middle",
-            text_size=(None, None),
+            size_hint_y=None,
+            font_size=dp(15),
+            background_color=(0, 0, 0, 0),
+            background_normal="",
+            color=(1, 1, 1, 1),
         )
-        item.bind(size=lambda inst, val: setattr(item, "text_size", (item.width, None)))
+
+        def _update_text_size(instance, width, item=item):
+            item.text_size = (width - dp(10), None)
+
+        def _update_height(instance, texture_size, ligne=ligne):
+            nouvelle_hauteur = texture_size[1] + dp(24)
+            item.height = nouvelle_hauteur
+            ligne.height = nouvelle_hauteur
+
+        item.bind(width=_update_text_size)
+        item.bind(texture_size=_update_height)
         item.bind(on_press=lambda inst, lien=c["lien"]: ouvrir_lien(lien))
         ligne.add_widget(item)
 
