@@ -43,10 +43,10 @@ FLUX_RSS = [
 TOP_N = 100
 
 LOTS_PREMIUM = ["voiture", "voyage", "séjour", "iphone", "playstation", "ps5",
-                "macbook", "croisière", "week-end", "smartphone", "console", "samsung", "android"]
-LOTS_MOYENS = ["bon d'achat", "carte cadeau", "livre", "coffret", "place de cinéma",
-               "abonnement", "cosmétique", "pokemon", "yu-gi-oh", "souris", "casque",
-               "cuisine", "enceinte"]
+                "macbook", "croisière", "week-end", "smartphone", "console", "samsung", "android", "display", "pokemon"]
+LOTS_MOYENS = ["bon d'achat", "carte cadeau", "coffret", "place de cinéma",
+               "abonnement", "cosmétique", "yu-gi-oh", "souris", "casque",
+               "cuisine", "enceinte", "magic", "one-piece", "informatique"]
 MOTS_SANS_ACHAT = ["sans obligation d'achat", "gratuit"]
 
 
