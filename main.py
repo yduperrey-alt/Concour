@@ -166,6 +166,8 @@ class ConcoursFinderApp(App):
     def build(self):
         self.title = "Concours Finder"
         self.supprimes = charger_supprimes()
+        self.resultats_actuels = []
+        self.page_actuelle = 1
         root = BoxLayout(orientation="vertical", padding=(dp(10), dp(45), dp(10), dp(10)), spacing=10)
 
         header = BoxLayout(orientation="horizontal", size_hint=(1, None), height=50, spacing=10)
@@ -173,6 +175,22 @@ class ConcoursFinderApp(App):
         self.bouton_recherche.bind(on_press=self.lancer_recherche)
         header.add_widget(self.bouton_recherche)
         root.add_widget(header)
+
+        # Onglets de pagination par score
+        onglets = BoxLayout(orientation="horizontal", size_hint=(1, None), height=44, spacing=6)
+        self.boutons_pages = {}
+        libelles_pages = {
+            1: "Score ≥ 10",
+            2: "Score 5-9",
+            3: "Score < 5",
+        }
+        for num_page, libelle in libelles_pages.items():
+            btn = Button(text=libelle)
+            btn.bind(on_press=lambda inst, p=num_page: self._changer_page(p))
+            onglets.add_widget(btn)
+            self.boutons_pages[num_page] = btn
+        root.add_widget(onglets)
+        self._maj_style_onglets()
 
         self.statut = Label(text="Appuie sur le bouton pour lancer la recherche.",
                              size_hint=(1, None), height=30)
@@ -185,6 +203,18 @@ class ConcoursFinderApp(App):
         root.add_widget(self.scroll)
 
         return root
+
+    def _maj_style_onglets(self):
+        for num_page, btn in self.boutons_pages.items():
+            if num_page == self.page_actuelle:
+                btn.background_color = (0.30, 0.55, 0.90, 1)
+            else:
+                btn.background_color = (1, 1, 1, 1)
+
+    def _changer_page(self, num_page):
+        self.page_actuelle = num_page
+        self._maj_style_onglets()
+        self._afficher_page()
 
     def lancer_recherche(self, instance):
         self.bouton_recherche.disabled = True
@@ -209,6 +239,8 @@ class ConcoursFinderApp(App):
     def _afficher_resultats(self, resultats, diagnostic=None):
         # Sécurité supplémentaire : filtre les concours déjà supprimés
         resultats = [c for c in resultats if c["lien"] not in self.supprimes]
+        self.resultats_actuels = resultats
+        self.dernier_diagnostic = diagnostic
 
         self.statut.text = (
             f"{len(resultats)} concours trouvés — "
@@ -227,10 +259,31 @@ class ConcoursFinderApp(App):
                     text_size=(self.liste.width or 300, None),
                     color=(1, 0.5, 0.5, 1),
                 ))
+            self.bouton_recherche.disabled = False
+            return
 
-        for i, c in enumerate(resultats[:TOP_N], 1):
-            self._ajouter_ligne_concours(i, c)
+        self._afficher_page()
         self.bouton_recherche.disabled = False
+
+    def _filtrer_page(self, resultats, num_page):
+        if num_page == 1:
+            return [c for c in resultats if c["score"] >= 10]
+        if num_page == 2:
+            return [c for c in resultats if 5 <= c["score"] <= 9]
+        return [c for c in resultats if c["score"] < 5]
+
+    def _afficher_page(self):
+        self.liste.clear_widgets()
+        page = self._filtrer_page(self.resultats_actuels, self.page_actuelle)
+
+        libelles = {1: "score ≥ 10", 2: "score 5-9", 3: "score < 5"}
+        self.statut.text = (
+            f"{len(self.resultats_actuels)} concours au total — "
+            f"{len(page)} sur cette page ({libelles[self.page_actuelle]})"
+        )
+
+        for i, c in enumerate(page, 1):
+            self._ajouter_ligne_concours(i, c)
 
     def _ajouter_ligne_concours(self, i, c):
         ligne = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=10,
@@ -280,6 +333,7 @@ class ConcoursFinderApp(App):
         """Coché = suppression définitive du concours de la liste et du stockage."""
         self.supprimes.add(lien)
         sauvegarder_supprimes(self.supprimes)
+        self.resultats_actuels = [c for c in self.resultats_actuels if c["lien"] != lien]
         self.liste.remove_widget(ligne)
 
 
