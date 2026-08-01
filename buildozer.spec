@@ -14,7 +14,7 @@ version = 1.0
 # leur setup.py, que les versions récentes de setuptools ont totalement
 # supprimée — ça fait planter la compilation avec l'erreur
 # "use_2to3 is invalid" avant même de commencer à construire l'app.
-requirements = python3,kivy==2.3.0,feedparser==6.0.11,certifi,pyjnius
+requirements = python3,kivy==2.3.1,feedparser==6.0.11,certifi,pyjnius
 
 orientation = portrait
 fullscreen = 0
@@ -29,7 +29,7 @@ android.permissions = INTERNET, ACCESS_NETWORK_STATE
 
 android.api = 34
 android.minapi = 21
-android.ndk = 23b
+android.ndk = 25b
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.accept_sdk_license = True
