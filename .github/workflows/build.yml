@@ -11,13 +11,31 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Installer Java 17 (requis par le plugin Gradle Android)
+        # Le runner GitHub a plusieurs JDK préinstallés (8, 11, 17, 21...) et
+        # "java" pointe par défaut sur la 11, même après un `apt install
+        # openjdk-17-jdk` — d'où l'erreur "Android Gradle plugin requires
+        # Java 17". setup-java configure correctement JAVA_HOME et la PATH
+        # pour que ce soit bien la 17 qui soit utilisée par Gradle.
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Installer les dépendances système
         run: |
           sudo apt update -qq
-          sudo apt install -y -qq git zip unzip openjdk-17-jdk autoconf libtool \
+          sudo apt install -y -qq git zip unzip autoconf libtool \
             pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev build-essential
 
       - name: Installer buildozer (version figée, stable)
+        # Cython 3.x est nécessaire pour Kivy 2.3.1 (la branche 0.29.x génère
+        # du code C incompatible avec les en-têtes du NDK 25+).
+        #
+        # NOTE : la version de python-for-android n'est PAS fixée ici — ça
+        # n'aurait aucun effet, car buildozer clone sa propre copie de p4a
+        # via git (voir p4a.branch dans buildozer.spec, qui est le réglage
+        # qui compte réellement).
         run: pip install buildozer==1.5.0 cython==3.0.10 virtualenv
 
       - name: Compiler l'APK
