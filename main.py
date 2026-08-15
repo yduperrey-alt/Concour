@@ -243,6 +243,30 @@ LOTS_BASIQUES = ["cadeau", "cadeaux", "lot à gagner", "lots à gagner", "gain",
                   "bon plan", "échantillon", "échantillons", "goodies", "gadget"]
 MOTS_SANS_ACHAT = ["sans obligation d'achat", "sans achat", "gratuit", "gratuitement"]
 
+# Étiquette courte (vignette de carte) selon le type de lot détecté — texte
+# ASCII uniquement, pas de vraie photo (les flux n'en fournissent pas de
+# façon fiable, et un glyphe d'icône Unicode ne s'affiche pas correctement
+# avec la police embarquée par Kivy sur Android, voir ICONE_* plus haut).
+# Liste vérifiée dans l'ordre : la première catégorie qui matche gagne.
+TYPES_LOT_VISUELS = [
+    (["iphone", "smartphone", "samsung galaxy", "xiaomi", "téléphone"], "TEL"),
+    (["playstation", "ps5", "ps4", "xbox", "nintendo switch", "console"], "JEU"),
+    (["macbook", "pc portable", "ordinateur portable", "laptop"], "PC"),
+    (["ipad", "tablette"], "TAB"),
+    (["voiture", "moto", "scooter"], "AUTO"),
+    (["voyage", "séjour", "croisière", "week-end"], "VOY"),
+    (["téléviseur", "tv oled", "home cinéma", "barre de son"], "TV"),
+    (["montre connectée", "apple watch", "airpods", "casque vr", "casque"], "AUDIO"),
+    (["drone"], "DRONE"),
+    (["bon d'achat", "carte cadeau", "chèque cadeau", "chèque"], "BON"),
+    (["parfum", "cosmétique"], "BEAUTE"),
+    (["vélo", "trottinette"], "VELO"),
+    (["livre"], "LIVRE"),
+    (["jeu vidéo", "jeu de société"], "JEU"),
+    (["figurine", "vinyle"], "COL"),
+    (["restaurant", "spa", "place de cinéma"], "SORTIE"),
+]
+
 # Utilisés uniquement en filet de sécurité : si aucun mot-clé de lot ne matche,
 # on vérifie qu'il s'agit bien d'un concours pour éviter un score de 0 sec
 # sur une entrée légitime dont le lot n'est simplement pas encore répertorié.
@@ -405,6 +429,16 @@ def score_concours(titre: str, resume: str, texte: str = None) -> int:
         score = 1
 
     return score
+
+
+def type_lot_visuel(texte: str) -> str:
+    """Renvoie une courte étiquette (voir TYPES_LOT_VISUELS) représentant le
+    type de lot détecté, pour la vignette des cartes concours. ICONE_ETOILE
+    en filet de sécurité si aucune catégorie connue ne correspond."""
+    for mots, etiquette in TYPES_LOT_VISUELS:
+        if any(m in texte for m in mots):
+            return etiquette
+    return ICONE_ETOILE
 
 
 def nettoyer_html(texte: str) -> str:
@@ -886,32 +920,6 @@ def _telecharger_flux(url: str):
         return url, None, str(e)
 
 
-_RE_IMG_HTML = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
-
-
-def _extraire_image_url(entree):
-    """Cherche une image associée à une entrée de flux RSS : miniature
-    media:thumbnail, media:content, pièce jointe (enclosure), ou balise <img>
-    intégrée dans le résumé HTML — dans cet ordre de préférence. Renvoie None
-    si rien de plausible n'est trouvé (les flux Google Actualités n'ont
-    jamais d'image, par exemple — c'est un cas normal, pas une erreur)."""
-    for media in entree.get("media_thumbnail", None) or ():
-        url = media.get("url")
-        if url:
-            return url
-    for media in entree.get("media_content", None) or ():
-        url = media.get("url")
-        type_media = media.get("medium") or media.get("type", "")
-        if url and ("image" in type_media or not type_media):
-            return url
-    for piece_jointe in entree.get("enclosures", None) or ():
-        url = piece_jointe.get("href") or piece_jointe.get("url")
-        if url and "image" in piece_jointe.get("type", ""):
-            return url
-    m = _RE_IMG_HTML.search(entree.get("summary", "") or "")
-    return m.group(1) if m else None
-
-
 def _extraire_entrees_brutes(flux):
     """Convertit un flux feedparser en simples dicts JSON-compatibles, pour
     pouvoir les mettre en cache sur disque tels quels."""
@@ -922,7 +930,6 @@ def _extraire_entrees_brutes(flux):
             "titre": entree.get("title", "Sans titre"),
             "resume": entree.get("summary", ""),
             "date_pub": entree.get("published", "Date inconnue"),
-            "image_url": _extraire_image_url(entree),
         })
     return entrees
 
@@ -1029,7 +1036,7 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desact
                 "categories": categories_requises,
                 "score": score,
                 "source": url,
-                "image_url": e.get("image_url"),
+                "type_lot": type_lot_visuel(texte_analyse),
             })
 
         nb_ajoutes = len(resultats) - nb_avant
@@ -1170,7 +1177,6 @@ from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.widget import Widget
-from kivy.uix.image import AsyncImage
 from kivy.metrics import dp, sp
 
 # Window.clearcolor est fixé dans App.build(), APRÈS _appliquer_theme() —
@@ -1457,8 +1463,12 @@ class ConcoursFinderApp(App):
         Clock.schedule_interval(self._verifier_auto_refresh, 6 * 3600)
 
         # --- Navigation façon "vraie page" (streaming) au lieu d'une popup pour
-        # le détail d'un concours : deux écrans dans un ScreenManager. ---
+        # le détail d'un concours : plusieurs écrans dans un ScreenManager. ---
         self.sm = ScreenManager(transition=SlideTransition(duration=0.22))
+
+        self.ecran_accueil = Screen(name="accueil")
+        self.sm.add_widget(self.ecran_accueil)
+
         ecran_liste = Screen(name="liste")
         ecran_liste.add_widget(root)
         self.sm.add_widget(ecran_liste)
@@ -1466,11 +1476,22 @@ class ConcoursFinderApp(App):
         self.ecran_details = Screen(name="details")
         self.sm.add_widget(self.ecran_details)
 
+        self.sm.current = "accueil"
+        self._afficher_accueil()
+
         # Le bouton "retour" matériel Android doit ramener à la liste plutôt
         # que fermer l'application quand on est sur la page de détails.
         Window.bind(on_keyboard=self._sur_bouton_retour)
 
-        return self.sm
+        # --- Barre de navigation en bas, persistante (masquée seulement sur
+        # la fiche détail, qui a déjà son propre bouton "< Retour"). ---
+        conteneur_general = BoxLayout(orientation="vertical")
+        conteneur_general.add_widget(self.sm)
+        self.barre_nav = self._construire_barre_navigation()
+        conteneur_general.add_widget(self.barre_nav)
+        self._maj_style_nav("accueil")
+
+        return conteneur_general
 
     def _sur_bouton_retour(self, window, key, *args):
         if key == 27 and self.sm.current == "details":  # 27 = bouton "retour" Android
@@ -1482,6 +1503,8 @@ class ConcoursFinderApp(App):
         self._lien_details_courant = None
         self.sm.transition.direction = "right"
         self.sm.current = "liste"
+        self._maj_style_nav("rs" if self.page_actuelle == 4 else "liste")
+        self._maj_visibilite_barre_nav()
 
     def _sur_texte_recherche(self, instance, valeur):
         """Debounce : attend une courte pause dans la frappe avant de refiltrer,
@@ -1724,6 +1747,7 @@ class ConcoursFinderApp(App):
         else:
             self.resultats_actuels = list(self._resultats_bruts)
         self._afficher_page()
+        self._afficher_accueil()
 
     # --- Favoris ---
 
@@ -1916,6 +1940,215 @@ class ConcoursFinderApp(App):
         self._maj_style_onglets()
         self._maj_visibilite_reseaux_sociaux()
         self._afficher_page()
+        if hasattr(self, "boutons_nav"):
+            self._maj_style_nav("rs" if num_page == 4 else "liste")
+
+    # --- Navigation en bas (barre persistante, façon mockup) ---
+
+    def _construire_barre_navigation(self):
+        barre = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(58),
+                           spacing=dp(2), padding=(dp(4), dp(6), dp(4), dp(6)))
+        with barre.canvas.before:
+            Color(*COULEUR_CARTE_A)
+            rect = Rectangle(pos=barre.pos, size=barre.size)
+            Color(*COULEUR_CARTE_BORDURE)
+            trait = Line(points=[barre.x, barre.top, barre.right, barre.top], width=dp(1))
+
+        def _sync(inst, *_a):
+            rect.pos = inst.pos
+            rect.size = inst.size
+            trait.points = [inst.x, inst.top, inst.right, inst.top]
+        barre.bind(pos=_sync, size=_sync)
+
+        # Adapté du mockup fourni : "Profil" et "Notifications" n'ont pas
+        # d'équivalent réel dans l'app (pas de compte utilisateur, pas de
+        # centre de notifications) — remplacés par les vraies destinations
+        # existantes (Favoris, RS, Réglages) plutôt que des écrans factices.
+        self._destinations_nav = [
+            ("accueil", "Accueil", self._naviguer_accueil),
+            ("liste", "Rechercher", lambda inst: self._naviguer_rechercher(1)),
+            ("favoris", "Favoris", lambda inst: self._ouvrir_favoris(None)),
+            ("rs", "RS", lambda inst: self._naviguer_rechercher(4)),
+            ("parametres", "Réglages", lambda inst: self._ouvrir_parametres(None)),
+        ]
+        self.boutons_nav = {}
+        for cle, libelle, callback in self._destinations_nav:
+            btn = Button(text=libelle, font_size=sp(10), bold=True, color=COULEUR_TEXTE_ATTENUE,
+                         background_color=(0, 0, 0, 0), background_normal="", background_down="",
+                         halign="center", valign="middle")
+            btn.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            btn.bind(on_press=callback)
+            barre.add_widget(btn)
+            self.boutons_nav[cle] = btn
+        return barre
+
+    def _maj_style_nav(self, destination_active):
+        for cle, btn in self.boutons_nav.items():
+            btn.color = COULEUR_ACCENT if cle == destination_active else COULEUR_TEXTE_ATTENUE
+
+    def _maj_visibilite_barre_nav(self):
+        """La barre du bas n'a pas sa place sur la fiche détail, qui a déjà
+        son propre bouton "< Retour" en haut."""
+        visible = self.sm.current != "details"
+        self.barre_nav.height = dp(58) if visible else 0
+        self.barre_nav.opacity = 1 if visible else 0
+        self.barre_nav.disabled = not visible
+
+    def _naviguer_accueil(self, instance=None):
+        self._afficher_accueil()
+        self.sm.transition.direction = "right"
+        self.sm.current = "accueil"
+        self._maj_style_nav("accueil")
+        self._maj_visibilite_barre_nav()
+
+    def _naviguer_rechercher(self, page=1):
+        self.sm.transition.direction = "left" if self.sm.current == "accueil" else self.sm.transition.direction
+        self.sm.current = "liste"
+        self._changer_page(page)
+        self._maj_style_nav("rs" if page == 4 else "liste")
+        self._maj_visibilite_barre_nav()
+
+    def _afficher_accueil(self):
+        """(Re)construit l'écran d'accueil : stats réelles (pas de chiffres
+        inventés) et les meilleurs concours de la dernière recherche.
+        Appelé à chaque changement de résultats (voir _appliquer_preferences)
+        pour rester à jour même si l'utilisateur n'est pas sur cet écran."""
+        if not hasattr(self, "ecran_accueil"):
+            return
+        self.ecran_accueil.clear_widgets()
+        contenu = BoxLayout(orientation="vertical", padding=(dp(16), dp(42), dp(16), dp(12)), spacing=dp(14))
+
+        heure = datetime.now().hour
+        salutation = "Bonjour" if 5 <= heure < 18 else "Bonsoir"
+        lbl_salutation = Label(
+            text=f"{salutation} !", font_size=sp(22), bold=True, color=COULEUR_TEXTE,
+            size_hint_y=None, height=dp(30), halign="left", valign="middle",
+        )
+        lbl_salutation.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        contenu.add_widget(lbl_salutation)
+
+        lbl_accroche = Label(
+            text="Prêt à gagner de super lots ?", font_size=sp(13), color=COULEUR_TEXTE_ATTENUE,
+            size_hint_y=None, height=dp(20), halign="left", valign="middle",
+        )
+        lbl_accroche.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        contenu.add_widget(lbl_accroche)
+
+        bouton_recherche_raccourci = Button(
+            text="Rechercher un concours...", font_size=sp(13), color=COULEUR_TEXTE_ATTENUE,
+            halign="left", valign="middle", size_hint_y=None, height=dp(44), padding=(dp(14), 0),
+        )
+        bouton_recherche_raccourci.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        stylise_bouton(bouton_recherche_raccourci, COULEUR_CARTE_A, rayon=14)
+        bouton_recherche_raccourci.bind(on_press=lambda inst: self._naviguer_rechercher(1))
+        contenu.add_widget(bouton_recherche_raccourci)
+
+        # --- Raccourcis vers les 4 filtres (mêmes tris que les onglets "Rechercher") ---
+        grille_raccourcis = GridLayout(cols=4, size_hint_y=None, height=dp(64), spacing=dp(8))
+        for num_page, libelle, couleur, couleur_texte in (
+            (1, "Top lots", COULEUR_PREMIUM, couleur_texte_badge(COULEUR_PREMIUM)),
+            (2, "Bons plans", COULEUR_MOYEN, couleur_texte_badge(COULEUR_MOYEN)),
+            (3, "Petits lots", COULEUR_BASIQUE, couleur_texte_badge(COULEUR_BASIQUE)),
+            (4, "RS", COULEUR_ACCENT, COULEUR_TEXTE_SUR_ACCENT),
+        ):
+            btn = Button(text=libelle, font_size=sp(10), bold=True, color=couleur_texte,
+                         halign="center", valign="middle")
+            btn.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            stylise_bouton(btn, couleur, rayon=14)
+            btn.bind(on_press=lambda inst, p=num_page: self._naviguer_rechercher(p))
+            grille_raccourcis.add_widget(btn)
+        contenu.add_widget(grille_raccourcis)
+
+        # --- Stats réelles (aucun chiffre inventé) ---
+        carte_stats = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(70), spacing=dp(8),
+                                 padding=(dp(4), dp(10), dp(4), dp(10)))
+        with carte_stats.canvas.before:
+            Color(*COULEUR_CARTE_A)
+            rect_stats = RoundedRectangle(radius=[dp(14)], pos=carte_stats.pos, size=carte_stats.size)
+        carte_stats.bind(pos=lambda inst, val, r=rect_stats: setattr(r, "pos", inst.pos))
+        carte_stats.bind(size=lambda inst, val, r=rect_stats: setattr(r, "size", inst.size))
+
+        nb_top = len([c for c in self.resultats_actuels if c["score"] >= 10])
+        for valeur, libelle in (
+            (len(self.resultats_actuels), "Concours"),
+            (nb_top, "Top lots"),
+            (len(self.favoris), "Favoris"),
+        ):
+            bloc = BoxLayout(orientation="vertical")
+            lbl_valeur = Label(text=str(valeur), font_size=sp(19), bold=True, color=COULEUR_ACCENT)
+            lbl_libelle = Label(text=libelle, font_size=sp(10), color=COULEUR_TEXTE_ATTENUE)
+            bloc.add_widget(lbl_valeur)
+            bloc.add_widget(lbl_libelle)
+            carte_stats.add_widget(bloc)
+        contenu.add_widget(carte_stats)
+
+        # --- Concours à la une (les mieux notés de la dernière recherche) ---
+        lbl_une = Label(
+            text="Concours à la une", font_size=sp(15), bold=True, color=COULEUR_TEXTE,
+            size_hint_y=None, height=dp(24), halign="left", valign="middle",
+        )
+        lbl_une.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        contenu.add_widget(lbl_une)
+
+        if self.resultats_actuels:
+            scroll_une = ScrollView(size_hint_y=None, height=dp(140), do_scroll_y=False, do_scroll_x=True)
+            ligne_une = BoxLayout(orientation="horizontal", size_hint=(None, 1), spacing=dp(10))
+            ligne_une.bind(minimum_width=ligne_une.setter("width"))
+            for c in self.resultats_actuels[:8]:
+                ligne_une.add_widget(self._construire_carte_une(c))
+            scroll_une.add_widget(ligne_une)
+            contenu.add_widget(scroll_une)
+        else:
+            lbl_vide = Label(
+                text="Lance une recherche pour découvrir des concours.", font_size=sp(13),
+                color=COULEUR_TEXTE_ATTENUE, size_hint_y=None, height=dp(40),
+                halign="left", valign="top",
+            )
+            lbl_vide.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            contenu.add_widget(lbl_vide)
+
+        contenu.add_widget(BoxLayout())  # pousse tout vers le haut
+        self.ecran_accueil.add_widget(contenu)
+
+    def _construire_carte_une(self, c):
+        libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
+        carte = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(150), spacing=dp(6),
+                           padding=(dp(10), dp(10), dp(10), dp(10)))
+        with carte.canvas.before:
+            Color(*COULEUR_CARTE_A)
+            rect = RoundedRectangle(radius=[dp(14)], pos=carte.pos, size=carte.size)
+            Color(*COULEUR_CARTE_BORDURE)
+            bordure = Line(rounded_rectangle=(carte.x, carte.y, carte.width, carte.height, dp(14)), width=dp(1))
+
+        def _sync(inst, *_a):
+            rect.pos = inst.pos
+            rect.size = inst.size
+            bordure.rounded_rectangle = (inst.x, inst.y, inst.width, inst.height, dp(14))
+        carte.bind(pos=_sync, size=_sync)
+
+        texte_badge = f"{icone_palier} {libelle_palier}" if icone_palier else libelle_palier
+        badge = Label(text=texte_badge, font_size=sp(9), bold=True, color=couleur_texte_badge(couleur_palier),
+                      size_hint=(None, None), height=dp(16))
+        badge.texture_update()
+        badge.width = badge.texture_size[0] + dp(14)
+        badge.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        with badge.canvas.before:
+            Color(*couleur_palier)
+            badge_rect = RoundedRectangle(radius=[dp(8)], pos=badge.pos, size=badge.size)
+        badge.bind(pos=lambda inst, val, r=badge_rect: setattr(r, "pos", inst.pos))
+        badge.bind(size=lambda inst, val, r=badge_rect: setattr(r, "size", inst.size))
+        carte.add_widget(badge)
+
+        titre = Button(
+            text=c["titre"], font_size=sp(12), bold=True, color=COULEUR_TEXTE,
+            halign="left", valign="top", background_color=(0, 0, 0, 0),
+            background_normal="", background_down="", size_hint_y=1,
+        )
+        titre.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        titre.bind(on_press=lambda inst, c=c: self._afficher_details(c))
+        carte.add_widget(titre)
+
+        return carte
 
     def lancer_recherche(self, instance, forcer=False):
         self.bouton_recherche.disabled = True
@@ -2191,21 +2424,16 @@ class ConcoursFinderApp(App):
         # Actualités, plus fréquent sur GrattWeb/Concours.fr), sinon pastille
         # colorée par palier avec une étoile en filet de sécurité visuel. ---
         TAILLE_VIGNETTE = dp(64)
-        if c.get("image_url"):
-            vignette = AsyncImage(
-                source=c["image_url"], size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE),
-                allow_stretch=True, keep_ratio=False,
-            )
-        else:
-            vignette = BoxLayout(size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE))
-            with vignette.canvas.before:
-                Color(*couleur_palier)
-                vignette_rect = RoundedRectangle(radius=[dp(12)], pos=vignette.pos, size=vignette.size)
-            vignette.bind(pos=lambda inst, val, r=vignette_rect: setattr(r, "pos", inst.pos))
-            vignette.bind(size=lambda inst, val, r=vignette_rect: setattr(r, "size", inst.size))
-            glyphe = Label(text=ICONE_ETOILE, font_size=sp(22), bold=True,
-                           color=couleur_texte_badge(couleur_palier))
-            vignette.add_widget(glyphe)
+        vignette = BoxLayout(size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE))
+        with vignette.canvas.before:
+            Color(*couleur_palier)
+            vignette_rect = RoundedRectangle(radius=[dp(12)], pos=vignette.pos, size=vignette.size)
+        vignette.bind(pos=lambda inst, val, r=vignette_rect: setattr(r, "pos", inst.pos))
+        vignette.bind(size=lambda inst, val, r=vignette_rect: setattr(r, "size", inst.size))
+        glyphe = Label(text=c.get("type_lot", ICONE_ETOILE), font_size=sp(13), bold=True,
+                       color=couleur_texte_badge(couleur_palier), halign="center")
+        glyphe.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        vignette.add_widget(glyphe)
         ligne.add_widget(vignette)
 
         # --- Contenu principal (badge + titre + méta), prend toute la place restante ---
@@ -2374,20 +2602,28 @@ class ConcoursFinderApp(App):
         barre_haut.add_widget(bouton_partager)
         page.add_widget(barre_haut)
 
-        # --- Image hero (si le flux en fournit une) ---
-        if c.get("image_url"):
-            hero = AsyncImage(
-                source=c["image_url"], size_hint=(1, None), height=dp(180),
-                allow_stretch=True, keep_ratio=False,
-            )
-            page.add_widget(hero)
+        libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
+
+        # --- Bannière : pas de vraie photo (voir type_lot_visuel), juste un
+        # bandeau coloré par palier avec le type de lot détecté en grand. ---
+        banniere = BoxLayout(size_hint=(1, None), height=dp(110))
+        with banniere.canvas.before:
+            Color(*couleur_palier)
+            banniere_rect = Rectangle(pos=banniere.pos, size=banniere.size)
+        banniere.bind(pos=lambda inst, val: setattr(banniere_rect, "pos", inst.pos))
+        banniere.bind(size=lambda inst, val: setattr(banniere_rect, "size", inst.size))
+        etiquette_banniere = Label(
+            text=c.get("type_lot", ICONE_ETOILE), font_size=sp(28), bold=True,
+            color=couleur_texte_badge(couleur_palier),
+        )
+        banniere.add_widget(etiquette_banniere)
+        page.add_widget(banniere)
 
         # --- Contenu déroulant ---
         scroll = ScrollView()
         contenu = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None, padding=(0, dp(8), 0, dp(8)))
         contenu.bind(minimum_height=contenu.setter("height"))
 
-        libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
         texte_badge = f"{icone_palier} {libelle_palier}" if icone_palier else libelle_palier
         badge = Label(
             text=texte_badge, font_size=sp(12), bold=True,
@@ -2538,6 +2774,7 @@ class ConcoursFinderApp(App):
         self.ecran_details.add_widget(page)
         self.sm.transition.direction = "left"
         self.sm.current = "details"
+        self._maj_visibilite_barre_nav()
 
         # Vérification en tâche de fond : on va chercher la vraie page du concours
         # pour affiner les infos (plus fiable qu'un simple résumé RSS tronqué).
