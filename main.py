@@ -886,6 +886,32 @@ def _telecharger_flux(url: str):
         return url, None, str(e)
 
 
+_RE_IMG_HTML = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)
+
+
+def _extraire_image_url(entree):
+    """Cherche une image associée à une entrée de flux RSS : miniature
+    media:thumbnail, media:content, pièce jointe (enclosure), ou balise <img>
+    intégrée dans le résumé HTML — dans cet ordre de préférence. Renvoie None
+    si rien de plausible n'est trouvé (les flux Google Actualités n'ont
+    jamais d'image, par exemple — c'est un cas normal, pas une erreur)."""
+    for media in entree.get("media_thumbnail", None) or ():
+        url = media.get("url")
+        if url:
+            return url
+    for media in entree.get("media_content", None) or ():
+        url = media.get("url")
+        type_media = media.get("medium") or media.get("type", "")
+        if url and ("image" in type_media or not type_media):
+            return url
+    for piece_jointe in entree.get("enclosures", None) or ():
+        url = piece_jointe.get("href") or piece_jointe.get("url")
+        if url and "image" in piece_jointe.get("type", ""):
+            return url
+    m = _RE_IMG_HTML.search(entree.get("summary", "") or "")
+    return m.group(1) if m else None
+
+
 def _extraire_entrees_brutes(flux):
     """Convertit un flux feedparser en simples dicts JSON-compatibles, pour
     pouvoir les mettre en cache sur disque tels quels."""
@@ -896,6 +922,7 @@ def _extraire_entrees_brutes(flux):
             "titre": entree.get("title", "Sans titre"),
             "resume": entree.get("summary", ""),
             "date_pub": entree.get("published", "Date inconnue"),
+            "image_url": _extraire_image_url(entree),
         })
     return entrees
 
@@ -1002,6 +1029,7 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desact
                 "categories": categories_requises,
                 "score": score,
                 "source": url,
+                "image_url": e.get("image_url"),
             })
 
         nb_ajoutes = len(resultats) - nb_avant
@@ -1142,6 +1170,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.textinput import TextInput
 from kivy.uix.progressbar import ProgressBar
 from kivy.uix.widget import Widget
+from kivy.uix.image import AsyncImage
 from kivy.metrics import dp, sp
 
 # Window.clearcolor est fixé dans App.build(), APRÈS _appliquer_theme() —
@@ -2143,35 +2172,48 @@ class ConcoursFinderApp(App):
         libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
 
         ligne = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=dp(10),
-                           padding=(dp(0), dp(0), dp(12), dp(0)))
+                           padding=(dp(10), dp(10), dp(12), dp(10)))
 
-        # Grande carte uniforme (façon "streaming") : fond identique pour toutes
-        # les cartes, un fin liseré pour les détacher du fond, et une bande
-        # verticale colorée à gauche qui indique le palier au premier coup d'œil.
         with ligne.canvas.before:
             Color(*COULEUR_CARTE_A)
             rect = RoundedRectangle(radius=[dp(16)], pos=ligne.pos, size=ligne.size)
             Color(*COULEUR_CARTE_BORDURE)
             bordure = Line(rounded_rectangle=(ligne.x, ligne.y, ligne.width, ligne.height, dp(16)), width=dp(1))
-            Color(*couleur_palier)
-            accent = RoundedRectangle(radius=[dp(3)], pos=ligne.pos, size=(dp(4), ligne.height))
 
         def _sync_fond(inst, *_a):
             rect.pos = inst.pos
             rect.size = inst.size
             bordure.rounded_rectangle = (inst.x, inst.y, inst.width, inst.height, dp(16))
-            accent.pos = (inst.x + dp(6), inst.y + dp(6))
-            accent.size = (dp(4), max(inst.height - dp(12), 0))
 
         ligne.bind(pos=_sync_fond, size=_sync_fond)
 
-        # --- Contenu principal (badges + titre), à gauche, prend toute la place restante ---
-        contenu = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None,
-                             padding=(dp(12), dp(10), 0, dp(10)))
+        # --- Vignette : image réelle du flux si disponible (rare pour Google
+        # Actualités, plus fréquent sur GrattWeb/Concours.fr), sinon pastille
+        # colorée par palier avec une étoile en filet de sécurité visuel. ---
+        TAILLE_VIGNETTE = dp(64)
+        if c.get("image_url"):
+            vignette = AsyncImage(
+                source=c["image_url"], size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE),
+                allow_stretch=True, keep_ratio=False,
+            )
+        else:
+            vignette = BoxLayout(size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE))
+            with vignette.canvas.before:
+                Color(*couleur_palier)
+                vignette_rect = RoundedRectangle(radius=[dp(12)], pos=vignette.pos, size=vignette.size)
+            vignette.bind(pos=lambda inst, val, r=vignette_rect: setattr(r, "pos", inst.pos))
+            vignette.bind(size=lambda inst, val, r=vignette_rect: setattr(r, "size", inst.size))
+            glyphe = Label(text=ICONE_ETOILE, font_size=sp(22), bold=True,
+                           color=couleur_texte_badge(couleur_palier))
+            vignette.add_widget(glyphe)
+        ligne.add_widget(vignette)
+
+        # --- Contenu principal (badge + titre + méta), prend toute la place restante ---
+        contenu = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None)
 
         ligne_badge = BoxLayout(size_hint_y=None, height=dp(20), spacing=dp(6))
 
-        texte_badge = f"{icone_palier} {libelle_palier}" if icone_palier else libelle_palier
+        texte_badge = f"{icone_palier} {libelle_palier} - {c['score']} pts" if icone_palier else f"{libelle_palier} - {c['score']} pts"
         badge = Label(
             text=texte_badge,
             font_size=sp(10),
@@ -2191,13 +2233,6 @@ class ConcoursFinderApp(App):
         badge.bind(pos=lambda inst, val: setattr(badge_rect, "pos", inst.pos))
         badge.bind(size=lambda inst, val: setattr(badge_rect, "size", inst.size))
         ligne_badge.add_widget(badge)
-
-        score_lbl = Label(
-            text=f"{c['score']} pts", font_size=sp(10), color=COULEUR_TEXTE_ATTENUE,
-            size_hint=(None, 1), width=dp(42), halign="left", valign="middle",
-        )
-        score_lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
-        ligne_badge.add_widget(score_lbl)
 
         date_obj = c.get("date_limite_obj")
         if date_obj:
@@ -2238,23 +2273,34 @@ class ConcoursFinderApp(App):
             color=COULEUR_TEXTE,
         )
 
+        # --- Méta : échéance textuelle sous le titre, façon mockup ---
+        meta_texte = c.get("date_limite_texte") or ""
+        meta = Label(
+            text=meta_texte, font_size=sp(11), color=COULEUR_TEXTE_ATTENUE,
+            size_hint_y=None, height=dp(16) if meta_texte else 0,
+            halign="left", valign="middle",
+        )
+        meta.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+
         def _update_text_size(instance, width, item=item):
             item.text_size = (width - dp(6), None)
 
-        def _update_hauteurs(instance, texture_size, ligne=ligne, contenu=contenu, item=item):
+        def _update_hauteurs(instance, texture_size, ligne=ligne, contenu=contenu, item=item, meta=meta):
             item.height = texture_size[1]
-            contenu.height = texture_size[1] + dp(20) + dp(4) + dp(20)
-            ligne.height = contenu.height
+            hauteur_contenu = texture_size[1] + dp(20) + dp(4) + meta.height + (dp(4) if meta_texte else 0)
+            contenu.height = hauteur_contenu
+            ligne.height = max(hauteur_contenu, TAILLE_VIGNETTE) + dp(20)
 
         item.bind(width=_update_text_size)
         item.bind(texture_size=_update_hauteurs)
         item.bind(on_press=lambda inst, c=c: self._afficher_details(c))
         contenu.add_widget(item)
+        if meta_texte:
+            contenu.add_widget(meta)
         ligne.add_widget(contenu)
 
         # --- Actions secondaires, regroupées à droite (favori en icône, puis suppression) ---
-        actions = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(48), spacing=dp(6),
-                             padding=(0, dp(10), 0, dp(10)))
+        actions = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(48), spacing=dp(6))
 
         est_favori = self._est_favori(c["lien"])
         bouton_fav = Button(
@@ -2327,6 +2373,14 @@ class ConcoursFinderApp(App):
         bouton_partager.bind(on_press=lambda inst, c=c: partager_concours(c["titre"], c["lien"]))
         barre_haut.add_widget(bouton_partager)
         page.add_widget(barre_haut)
+
+        # --- Image hero (si le flux en fournit une) ---
+        if c.get("image_url"):
+            hero = AsyncImage(
+                source=c["image_url"], size_hint=(1, None), height=dp(180),
+                allow_stretch=True, keep_ratio=False,
+            )
+            page.add_widget(hero)
 
         # --- Contenu déroulant ---
         scroll = ScrollView()
