@@ -1317,7 +1317,14 @@ class ConcoursFinderApp(App):
         onglets = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(36), spacing=dp(6))
         self.boutons_pages = {}
         for num_page, libelle in LIBELLES_PAGES.items():
-            btn = Button(text=libelle, font_size=sp(11), bold=True, color=COULEUR_TEXTE)
+            btn = Button(text=libelle, font_size=sp(10), bold=True, color=COULEUR_TEXTE,
+                         halign="center", valign="middle", shorten=True, shorten_from="right")
+            # Sans cette contrainte, un texte allongé (badge de compte ajouté
+            # par _maj_badges_onglets, ex: "Bons plans (12)") déborde
+            # visuellement au-delà des limites réelles du bouton : le texte
+            # semble plus large que la zone cliquable, qui elle ne bouge pas
+            # (elle suit toujours pos/size du widget, pas la taille du texte).
+            btn.bind(size=lambda inst, val: setattr(inst, "text_size", val))
             stylise_bouton(btn, COULEUR_ONGLET_INACTIF, rayon=16)
             btn.bind(on_press=lambda inst, p=num_page: self._changer_page(p))
             onglets.add_widget(btn)
