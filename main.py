@@ -16,19 +16,66 @@ from urllib.parse import quote_plus
 # Fond quasi-noir + cartes légèrement plus claires pour un fort effet de
 # profondeur, un unique accent vert émeraude, et l'or réservé aux gros lots
 # uniquement (pour qu'il garde tout son impact visuel).
-COULEUR_FOND = (0.067, 0.067, 0.067, 1)          # #111111
-COULEUR_CARTE_A = (0.118, 0.118, 0.118, 1)       # #1E1E1E
-COULEUR_CARTE_B = (0.118, 0.118, 0.118, 1)       # même teinte : grille uniforme, pas de zébrage
-COULEUR_CARTE_BORDURE = (0.20, 0.20, 0.20, 1)    # liseré discret pour détacher les cartes du fond
-COULEUR_ACCENT = (0.298, 0.686, 0.314, 1)        # #4CAF50 — vert émeraude
-COULEUR_ACCENT_FONCE = (0.220, 0.557, 0.235, 1)  # #388E3C — variante pressée/bordure
-COULEUR_ONGLET_INACTIF = (0.16, 0.16, 0.16, 1)
-COULEUR_TEXTE = (0.96, 0.96, 0.96, 1)
-COULEUR_TEXTE_ATTENUE = (0.62, 0.62, 0.62, 1)
+#
+# Deux palettes (sombre/claire) : les noms COULEUR_* restent des variables de
+# module normales (pas de vraies constantes en Python), réassignées une seule
+# fois au démarrage par _appliquer_theme() selon la préférence utilisateur.
+# Tout le reste du fichier continue de lire COULEUR_FOND, COULEUR_ACCENT...
+# sans changement : c'est un thème "appliqué au démarrage", pas un
+# recoloriage dynamique en direct (qui demanderait de reprendre l'instruction
+# Color de chaque widget déjà construit — trop risqué à faire à l'aveugle).
+PALETTE_SOMBRE = dict(
+    COULEUR_FOND=(0.067, 0.067, 0.067, 1),          # #111111
+    COULEUR_CARTE_A=(0.118, 0.118, 0.118, 1),       # #1E1E1E
+    COULEUR_CARTE_B=(0.118, 0.118, 0.118, 1),       # même teinte : grille uniforme, pas de zébrage
+    COULEUR_CARTE_BORDURE=(0.20, 0.20, 0.20, 1),    # liseré discret pour détacher les cartes du fond
+    COULEUR_ACCENT=(0.298, 0.686, 0.314, 1),        # #4CAF50 — vert émeraude
+    COULEUR_ACCENT_FONCE=(0.220, 0.557, 0.235, 1),  # #388E3C — variante pressée/bordure
+    COULEUR_ONGLET_INACTIF=(0.16, 0.16, 0.16, 1),
+    COULEUR_TEXTE=(0.96, 0.96, 0.96, 1),
+    COULEUR_TEXTE_ATTENUE=(0.62, 0.62, 0.62, 1),
+    # Texte affiché SUR un bouton/badge de couleur COULEUR_ACCENT. Du blanc
+    # pur sur le vert émeraude ne donne qu'un contraste WCAG ~2.8:1 (sous le
+    # seuil AA de 4.5:1 même en gros texte gras) ; un texte quasi noir monte
+    # à ~6.8:1. Centralisé ici pour ne pas avoir à choisir au cas par cas.
+    COULEUR_TEXTE_SUR_ACCENT=(0.05, 0.05, 0.05, 1),
+)
+PALETTE_CLAIRE = dict(
+    COULEUR_FOND=(0.965, 0.965, 0.965, 1),
+    COULEUR_CARTE_A=(1, 1, 1, 1),
+    COULEUR_CARTE_B=(1, 1, 1, 1),
+    COULEUR_CARTE_BORDURE=(0.85, 0.85, 0.85, 1),
+    COULEUR_ACCENT=(0.220, 0.557, 0.235, 1),        # #388E3C — plus soutenu que sur fond sombre
+    COULEUR_ACCENT_FONCE=(0.157, 0.443, 0.173, 1),
+    COULEUR_ONGLET_INACTIF=(0.90, 0.90, 0.90, 1),
+    COULEUR_TEXTE=(0.10, 0.10, 0.10, 1),
+    COULEUR_TEXTE_ATTENUE=(0.40, 0.40, 0.40, 1),
+    COULEUR_TEXTE_SUR_ACCENT=(1, 1, 1, 1),
+)
+
+COULEUR_FOND = PALETTE_SOMBRE["COULEUR_FOND"]
+COULEUR_CARTE_A = PALETTE_SOMBRE["COULEUR_CARTE_A"]
+COULEUR_CARTE_B = PALETTE_SOMBRE["COULEUR_CARTE_B"]
+COULEUR_CARTE_BORDURE = PALETTE_SOMBRE["COULEUR_CARTE_BORDURE"]
+COULEUR_ACCENT = PALETTE_SOMBRE["COULEUR_ACCENT"]
+COULEUR_ACCENT_FONCE = PALETTE_SOMBRE["COULEUR_ACCENT_FONCE"]
+COULEUR_ONGLET_INACTIF = PALETTE_SOMBRE["COULEUR_ONGLET_INACTIF"]
+COULEUR_TEXTE = PALETTE_SOMBRE["COULEUR_TEXTE"]
+COULEUR_TEXTE_ATTENUE = PALETTE_SOMBRE["COULEUR_TEXTE_ATTENUE"]
+COULEUR_TEXTE_SUR_ACCENT = PALETTE_SOMBRE["COULEUR_TEXTE_SUR_ACCENT"]
 COULEUR_PREMIUM = (0.831, 0.686, 0.216, 1)       # #D4AF37 — or, réservé aux gros lots
 COULEUR_MOYEN = (0.149, 0.651, 0.604, 1)         # sarcelle — reste dans la famille vert/émeraude
 COULEUR_BASIQUE = (0.42, 0.42, 0.42, 1)          # gris neutre
 COULEUR_URGENCE = (0.86, 0.25, 0.24, 1)          # rouge alerte (deadline proche)
+
+
+def _appliquer_theme(nom_theme):
+    """Réassigne les variables de palette globales selon le thème choisi.
+    Doit être appelé UNE SEULE FOIS, tout au début de App.build(), avant la
+    création du moindre widget (chaque widget capture la couleur au moment
+    de sa création, il n'y a pas de rafraîchissement dynamique)."""
+    palette = PALETTE_CLAIRE if nom_theme == "clair" else PALETTE_SOMBRE
+    globals().update(palette)
 
 # Icônes en ASCII pur uniquement. Les caractères Unicode "symboles" (★ ♥ ✕ →)
 # ne sont PAS inclus dans la police embarquée par Kivy sur Android : ils
@@ -47,12 +94,38 @@ FICHIER_FAVORIS = "favoris.json"
 FICHIER_HISTORIQUE = "historique.json"
 FICHIER_ETAT = "etat_app.json"
 FICHIER_CACHE_FLUX = "cache_flux.json"
+FICHIER_CACHE_PAGES = "cache_pages.json"
+FICHIER_PARAMETRES = "parametres.json"
+FICHIER_JOURNAL_CRASH = "dernier_crash.log"
+FICHIER_DERNIERS_RESULTATS = "derniers_resultats_ok.json"
 
 # --- Paramètres réseau ---
 TIMEOUT_RESEAU = 10                    # secondes avant abandon d'un flux injoignable
 MAX_FLUX_PARALLELES = 18               # téléchargements simultanés max
 JOURS_MAX_ANCIENNETE = 45              # articles plus vieux que ça = probablement terminés
 DUREE_CACHE_FLUX_SECONDES = 30 * 60    # un flux réutilisé depuis le cache pendant 30 min
+DUREE_CACHE_PAGES_SECONDES = 24 * 3600  # une page de détail revérifiée au plus 1 fois/jour
+
+# --- Paramètres réglables par l'utilisateur (voir _ouvrir_parametres) ---
+FREQUENCES_RAFRAICHISSEMENT = [
+    ("6h", 6), ("12h", 12), ("24h", 24), ("Désactivé", 0),
+]
+
+# --- Tris disponibles pour la liste (voir bouton_tri / _filtrer_page) ---
+TRIS_DISPONIBLES = [
+    ("score", "Score"),
+    ("date", "Échéance"),
+    ("valeur", "Valeur"),
+    ("alpha", "A-Z"),
+]
+
+LIBELLES_PAGES = {1: "Top lots", 2: "Bons plans", 3: "Petits lots", 4: "RS"}
+PARAMETRES_PAR_DEFAUT = {
+    "theme_clair": False,
+    "frequence_refresh_heures": 24,
+    "flux_desactives": [],
+    "tri": "score",
+}
 
 
 # --- 1. Sources RSS ---
@@ -78,11 +151,16 @@ def _url_groupee(marques) -> str:
     return _url_google_news(requete)
 
 
-FLUX_RSS = [
+# Liste de (libellé lisible, url) au lieu d'une simple liste d'URL : le
+# libellé sert à l'écran "Sources" des paramètres (activer/désactiver un flux
+# individuellement — les URLs Google Actualités générées ne sont pas
+# lisibles telles quelles). FLUX_RSS et FLUX_RSS_LIBELLES ci-dessous sont
+# dérivés de cette même liste pour ne jamais désynchroniser les deux.
+FLUX_RSS_AVEC_LIBELLES = [
     # --- Sites dédiés aux jeux-concours ---
-    "https://www.grattweb.fr/rss/rss.xml",
-    "https://www.grattweb.fr/rss/rss_etranger.xml",
-    "https://www.concours.fr/feed/",
+    ("GrattWeb (France)", "https://www.grattweb.fr/rss/rss.xml"),
+    ("GrattWeb (Étranger)", "https://www.grattweb.fr/rss/rss_etranger.xml"),
+    ("Concours.fr", "https://www.concours.fr/feed/"),
 
     # NOTE : les flux de presse généraliste (PlayStation Blog, Xbox News, Steam
     # News, IGN, JeuxActu, Gameblog...) ont été retirés. Ce sont des flux
@@ -94,31 +172,34 @@ FLUX_RSS = [
     # sans le bruit des articles d'actualité générale.
 
     # --- Mots-clés génériques ---
-    _url_google_news('"jeu concours"'),
-    _url_google_news('"instant gagnant"'),
-    _url_google_news('"tirage au sort"'),
-    _url_google_news("gagnez"),
+    ("Actus : \"jeu concours\"", _url_google_news('"jeu concours"')),
+    ("Actus : \"instant gagnant\"", _url_google_news('"instant gagnant"')),
+    ("Actus : \"tirage au sort\"", _url_google_news('"tirage au sort"')),
+    ("Actus : \"gagnez\"", _url_google_news("gagnez")),
+    ("Actus : \"grand jeu\"", _url_google_news('"grand jeu concours"')),
+    ("Actus : \"jouez et gagnez\"", _url_google_news('"jouez et gagnez"')),
 
     # --- Marques, regroupées par secteur (voir _url_groupee ci-dessus) ---
-    _url_groupee(["Carrefour", "E.Leclerc", "Lidl", "Auchan", "Intermarché",
-                  "Super U", "Monoprix", "Casino"]),                              # grande distribution
-    _url_groupee(["Fnac", "Darty", "Boulanger", "Cdiscount", "Amazon France"]),    # high-tech / e-commerce
-    _url_groupee(["Disney", "Pixar", "Marvel", "TF1", "M6", "France TV",
-                  "NRJ", "RTL", "Europe 1", "RMC"]),                              # divertissement / médias
-    _url_groupee(["PlayStation", "Xbox", "Nintendo", "Steam", "Epic Games",
-                  "Ubisoft", "EA", "Riot Games", "Blizzard", "Rockstar Games"]),  # jeux vidéo
-    _url_groupee(["LEGO", "Mattel", "Hasbro"]),                                   # jouets
-    _url_groupee(["Kinder", "Haribo", "Nutella", "Milka", "Coca-Cola",
-                  "Pepsi", "Red Bull", "Oreo", "LU"]),                            # confiserie / boissons
-    _url_groupee(["Michelin", "Renault", "Peugeot", "Citroën", "Dacia"]),         # automobile
-    _url_groupee(["Samsung", "LG", "Sony", "Asus", "Acer", "HP", "Dell", "Lenovo"]),  # électronique
-    _url_groupee(["Orange", "SFR", "Free", "Bouygues Telecom", "Canal+",
-                  "Netflix", "Prime Video", "Disney+"]),                          # télécom / streaming
-    _url_groupee(["Decathlon", "Intersport", "Go Sport", "Sephora",
-                  "Yves Rocher", "Nocibé", "L'Oréal"]),                           # sport / beauté
-    _url_groupee(["KFC", "McDonald's", "Burger King", "Domino's Pizza"]),         # restauration rapide
-    _url_groupee(["IKEA", "Leroy Merlin", "Castorama", "Brico Dépôt"]),           # bricolage / déco
-    _url_groupee(["Air France", "SNCF", "Accor", "Pierre & Vacances"]),           # voyage
+    ("Grande distribution", _url_groupee(["Carrefour", "E.Leclerc", "Lidl", "Auchan", "Intermarché",
+                                           "Super U", "Monoprix", "Casino"])),
+    ("High-tech / e-commerce", _url_groupee(["Fnac", "Darty", "Boulanger", "Cdiscount", "Amazon France"])),
+    ("Divertissement / médias", _url_groupee(["Disney", "Pixar", "Marvel", "TF1", "M6", "France TV",
+                                               "NRJ", "RTL", "Europe 1", "RMC"])),
+    ("Jeux vidéo", _url_groupee(["PlayStation", "Xbox", "Nintendo", "Steam", "Epic Games",
+                                  "Ubisoft", "EA", "Riot Games", "Blizzard", "Rockstar Games"])),
+    ("Jouets", _url_groupee(["LEGO", "Mattel", "Hasbro"])),
+    ("Jeux de société / loisirs créatifs", _url_groupee(["Asmodée", "Djeco", "Playmobil", "Ravensburger"])),
+    ("Confiserie / boissons", _url_groupee(["Kinder", "Haribo", "Nutella", "Milka", "Coca-Cola",
+                                             "Pepsi", "Red Bull", "Oreo", "LU"])),
+    ("Automobile", _url_groupee(["Michelin", "Renault", "Peugeot", "Citroën", "Dacia"])),
+    ("Électronique", _url_groupee(["Samsung", "LG", "Sony", "Asus", "Acer", "HP", "Dell", "Lenovo"])),
+    ("Télécom / streaming", _url_groupee(["Orange", "SFR", "Free", "Bouygues Telecom", "Canal+",
+                                           "Netflix", "Prime Video", "Disney+"])),
+    ("Sport / beauté", _url_groupee(["Decathlon", "Intersport", "Go Sport", "Sephora",
+                                      "Yves Rocher", "Nocibé", "L'Oréal"])),
+    ("Restauration rapide", _url_groupee(["KFC", "McDonald's", "Burger King", "Domino's Pizza"])),
+    ("Bricolage / déco", _url_groupee(["IKEA", "Leroy Merlin", "Castorama", "Brico Dépôt"])),
+    ("Voyage", _url_groupee(["Air France", "SNCF", "Accor", "Pierre & Vacances"])),
 
     # --- Réseaux sociaux / créateurs de contenu ---
     # Instagram et TikTok n'ont pas de flux RSS publics (ce sont des posts,
@@ -126,20 +207,23 @@ FLUX_RSS = [
     # directement. En revanche, Google Actualités remonte bien les articles
     # de blogs/presse qui ANNONCENT ce type de concours ("gagnez en likant
     # sur Instagram...") : c'est ce qu'on cible ici, regroupé en une requête.
-    _url_google_news(
+    ("Concours réseaux sociaux", _url_google_news(
         '"concours instagram" OR "concours tiktok" OR "concours facebook" OR '
         '"concours twitter" OR "concours créateur" OR "concours influenceur" OR '
         '"concours youtubeur" OR (giveaway instagram concours)'
-    ),
+    )),
 
     # Deux sites spécialisés qui référencent notamment des concours créateurs /
     # réseaux sociaux. Leur flux RSS n'a pas pu être confirmé publiquement
     # depuis cet environnement (adresse déduite de la convention WordPress
     # /feed/) : si l'URL est incorrecte, le diagnostic technique l'indiquera
     # simplement (0 entrée ou erreur), sans rien casser dans l'app.
-    "https://aldabro-concours.com/feed/",
-    "https://www.jouer-gagnant-concept.com/feed/",
+    ("Aldabro Concours", "https://aldabro-concours.com/feed/"),
+    ("Jouer Gagnant Concept", "https://www.jouer-gagnant-concept.com/feed/"),
 ]
+
+FLUX_RSS = [url for _libelle, url in FLUX_RSS_AVEC_LIBELLES]
+FLUX_RSS_LIBELLES = dict(FLUX_RSS_AVEC_LIBELLES)
 
 LOTS_PREMIUM = ["voiture", "voyage", "séjour", "iphone", "playstation", "ps5",
                 "macbook", "croisière", "week-end", "smartphone", "console", "samsung",
@@ -229,6 +313,9 @@ MOIS_FR = {
 MOTS_CLE_DATE_LIMITE = [
     "jusqu'au", "jusqu au", "jusqu'à", "avant le", "se termine le",
     "clôture le", "cloture le", "date limite", "fin du concours le",
+    # Formulations supplémentaires, fréquentes dans les flux mais absentes
+    "expire le", "expire, le", "à gagner jusqu'au", "clôture des inscriptions le",
+    "dernier délai le", "d'ici le", "jusqu'en", "se clôture le", "prend fin le",
 ]
 
 # Instagram et TikTok n'ont pas de flux RSS public (voir FLUX_RSS ci-dessus) :
@@ -373,10 +460,28 @@ def detecter_infos_requises(titre: str, resume: str) -> list:
     return trouves
 
 
-_RE_DATE_NUM = re.compile(r"(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})")
+# L'année est optionnelle dans les deux regex (ex: "jusqu'au 12/03" ou
+# "jusqu'au 12 mars", sans préciser l'année, est très courant dans les flux).
+_RE_DATE_NUM = re.compile(r"(\d{1,2})[/.\-](\d{1,2})(?:[/.\-](\d{2,4}))?")
 _RE_DATE_LETTRES = re.compile(
     r"(\d{1,2})\s*(" + "|".join(MOIS_FR.keys()) + r")\s*(\d{4})?", re.IGNORECASE
 )
+
+
+def _annee_la_plus_probable(jour: int, mois: int) -> int:
+    """Quand l'année n'est pas précisée dans le texte, on suppose l'année en
+    cours — sauf si ça place la date plus de 120 jours dans le passé, auquel
+    cas on suppose l'année suivante (ex: un article de décembre qui annonce
+    "jusqu'au 15 janvier" désigne le janvier suivant, pas celui déjà passé)."""
+    aujourdhui = date.today()
+    annee = aujourdhui.year
+    try:
+        candidate = date(annee, mois, jour)
+    except ValueError:
+        return annee
+    if (aujourdhui - candidate).days > 120:
+        return annee + 1
+    return annee
 
 
 def extraire_date_limite(texte: str):
@@ -394,11 +499,11 @@ def extraire_date_limite(texte: str):
         m = _RE_DATE_NUM.search(fenetre)
         if m:
             jour, mois, annee = m.groups()
-            annee = int(annee)
-            if annee < 100:
-                annee += 2000
+            annee_int = int(annee) if annee else _annee_la_plus_probable(int(jour), int(mois))
+            if annee_int < 100:
+                annee_int += 2000
             try:
-                d = date(annee, int(mois), int(jour))
+                d = date(annee_int, int(mois), int(jour))
                 return d.strftime("Jusqu'au %d/%m/%Y"), d
             except ValueError:
                 pass
@@ -407,7 +512,7 @@ def extraire_date_limite(texte: str):
         if m2:
             jour, mois_txt, annee = m2.groups()
             mois_num = MOIS_FR.get(mois_txt.lower())
-            annee_int = int(annee) if annee else datetime.now().year
+            annee_int = int(annee) if annee else _annee_la_plus_probable(int(jour), mois_num)
             try:
                 d = date(annee_int, mois_num, int(jour))
                 return f"Jusqu'au {int(jour)} {mois_txt} {annee_int}", d
@@ -416,17 +521,24 @@ def extraire_date_limite(texte: str):
     return None, None
 
 
+# Partie entière : soit un groupement de milliers explicite (1 200 / 1.200,
+# exactement 3 chiffres par groupe, pour ne pas avaler des décimales), soit
+# n'importe quelle suite de chiffres. Partie décimale : virgule (usage FR,
+# "12,50€") OU point (parfois utilisé aussi, "12.50€") suivi de 1 ou 2
+# chiffres — avant ce correctif, "12.50€" n'était compté que comme "12€"
+# (le point était traité à tort comme un séparateur de milliers).
 _RE_VALEUR_EUROS = re.compile(
-    r"(\d{1,3}(?:[ .]\d{3})*|\d+)(?:,(\d+))?\s?(?:€|euros?)", re.IGNORECASE
+    r"(\d{1,3}(?:[ .]\d{3})+|\d+)(?:[,.](\d{1,2}))?\s?(?:€|euros?)", re.IGNORECASE
 )
 
 
 def extraire_valeur_estimee(texte: str):
     """Cherche un montant en euros dans le texte (ex: "d'une valeur de 550€")
-    et renvoie le plus élevé trouvé, formaté pour l'affichage (ex: "550 €").
-    Renvoie None si aucun montant plausible n'est trouvé."""
+    et renvoie (texte_affichage, valeur_numerique) pour le plus élevé trouvé
+    — le nombre brut sert au tri par valeur (voir ConcoursFinderApp._filtrer_page).
+    Renvoie (None, None) si aucun montant plausible n'est trouvé."""
     if not texte:
-        return None
+        return None, None
     meilleure_valeur = None
     for m in _RE_VALEUR_EUROS.finditer(texte):
         partie_entiere = m.group(1).replace(" ", "").replace(".", "")
@@ -443,12 +555,12 @@ def extraire_valeur_estimee(texte: str):
         if meilleure_valeur is None or valeur > meilleure_valeur:
             meilleure_valeur = valeur
     if meilleure_valeur is None:
-        return None
+        return None, None
     if meilleure_valeur == int(meilleure_valeur):
         texte_valeur = f"{int(meilleure_valeur):,}".replace(",", " ")
     else:
         texte_valeur = f"{meilleure_valeur:,.2f}".replace(",", " ")
-    return f"{texte_valeur} €"
+    return f"{texte_valeur} €", meilleure_valeur
 
 
 def etoiles_pour_score(score: int) -> int:
@@ -477,15 +589,53 @@ def normaliser_titre(titre: str) -> str:
 def deduplique_concours(resultats: list) -> list:
     """Fusionne les concours quasi-identiques relayés par plusieurs flux :
     ne garde que la première rencontrée (la liste doit déjà être triée par score
-    décroissant), qui est donc la mieux notée."""
+    décroissant), qui est donc la mieux notée. Le concours gardé reçoit un
+    petit bonus de score par doublon fusionné (voir plus bas) : un concours
+    relayé par plusieurs sources est probablement plus fiable/important
+    qu'un concours isolé.
+
+    Comparaison indexée par mots-clés au lieu d'un O(n²) sur toute la liste :
+    un concours n'est comparé qu'aux concours déjà gardés qui partagent au
+    moins un mot significatif (4 lettres ou plus) avec lui, via un index
+    inversé mot -> indices des concours gardés. Sur une liste de plusieurs
+    milliers d'entrées, ça évite l'essentiel des comparaisons difflib
+    inutiles (concours qui n'ont aucun mot en commun, donc aucune chance
+    d'être des doublons)."""
     gardes = []
     titres_normalises = []
+    nb_flux_par_garde = []
+    index_mots = {}  # mot significatif -> ensemble des indices dans `gardes`
+
     for c in resultats:
         nt = normaliser_titre(c["titre"])
-        if any(difflib.SequenceMatcher(None, nt, existant).ratio() > 0.82 for existant in titres_normalises):
+        mots_significatifs = {m for m in nt.split() if len(m) >= 4}
+
+        candidats = set()
+        for mot in mots_significatifs:
+            candidats.update(index_mots.get(mot, ()))
+
+        idx_correspondant = next(
+            (idx for idx in candidats
+             if difflib.SequenceMatcher(None, nt, titres_normalises[idx]).ratio() > 0.82),
+            None,
+        )
+        if idx_correspondant is not None:
+            nb_flux_par_garde[idx_correspondant] += 1
             continue
+
+        nouvel_idx = len(gardes)
         gardes.append(c)
         titres_normalises.append(nt)
+        nb_flux_par_garde.append(1)
+        for mot in mots_significatifs:
+            index_mots.setdefault(mot, set()).add(nouvel_idx)
+
+    # Bonus plafonné (+2 par doublon, max +6) pour ne jamais dominer le score
+    # de base — juste un petit coup de pouce en cas d'égalité/quasi-égalité.
+    for c, nb_flux in zip(gardes, nb_flux_par_garde):
+        if nb_flux > 1:
+            c["score"] += min(nb_flux - 1, 3) * 2
+
     return gardes
 
 
@@ -498,6 +648,16 @@ def infos_palier(score: int):
     elif score >= 5:
         return "BON PLAN", COULEUR_MOYEN, ""
     return "PETIT LOT", COULEUR_BASIQUE, ""
+
+
+# Couleurs de badge assez claires pour qu'un texte blanc dessus tombe sous le
+# seuil de contraste WCAG AA (4.5:1) : un texte quasi noir y est utilisé à la
+# place. COULEUR_BASIQUE (gris) reste au-dessus du seuil avec du blanc.
+_COULEURS_BADGE_CLAIRES = (COULEUR_PREMIUM, COULEUR_MOYEN)
+
+
+def couleur_texte_badge(couleur_palier):
+    return (0.07, 0.07, 0.07, 1) if couleur_palier in _COULEURS_BADGE_CLAIRES else (1, 1, 1, 1)
 
 
 # =============================== STOCKAGE =================================
@@ -601,6 +761,57 @@ def sauvegarder_cache_flux(cache):
     _sauvegarder_json(FICHIER_CACHE_FLUX, cache, "le cache des flux")
 
 
+# --- Cache des pages de détail déjà vérifiées (voir recuperer_texte_page) ---
+# Avant, ce cache n'existait qu'en mémoire (self._cache_pages) : reperdu à
+# chaque redémarrage de l'app, donc une page déjà vérifiée hier était
+# retéléchargée en entier dès qu'on rouvrait sa fiche.
+
+def charger_cache_pages():
+    return _charger_json(FICHIER_CACHE_PAGES, {})
+
+
+def sauvegarder_cache_pages(cache):
+    _sauvegarder_json(FICHIER_CACHE_PAGES, cache, "le cache des pages de détail")
+
+
+# --- Paramètres réglables par l'utilisateur (thème, fréquence, flux actifs) ---
+# Séparé des préférences ("catégories à éviter") pour ne pas mélanger des
+# clés de nature différente (bool par catégorie vs. réglages ponctuels).
+
+def charger_parametres():
+    parametres = dict(PARAMETRES_PAR_DEFAUT)
+    parametres.update(_charger_json(FICHIER_PARAMETRES, {}))
+    return parametres
+
+
+def sauvegarder_parametres(parametres):
+    _sauvegarder_json(FICHIER_PARAMETRES, parametres, "les paramètres")
+
+
+# --- Dernier jeu de résultats obtenu avec succès (mode hors-ligne) ---
+# `date_limite_obj` est un objet `date`, non sérialisable tel quel en JSON :
+# converti en texte ISO à la sauvegarde, reconverti au chargement.
+
+def sauvegarder_derniers_resultats(resultats):
+    serialisables = []
+    for c in resultats:
+        c2 = dict(c)
+        date_obj = c2.get("date_limite_obj")
+        c2["date_limite_obj"] = date_obj.isoformat() if date_obj else None
+        serialisables.append(c2)
+    _sauvegarder_json(FICHIER_DERNIERS_RESULTATS, serialisables, "les derniers résultats")
+
+
+def charger_derniers_resultats():
+    resultats = []
+    for c in _charger_json(FICHIER_DERNIERS_RESULTATS, []):
+        c2 = dict(c)
+        texte_date = c2.get("date_limite_obj")
+        c2["date_limite_obj"] = date.fromisoformat(texte_date) if texte_date else None
+        resultats.append(c2)
+    return resultats
+
+
 # ================================ RESEAU ==================================
 
 import socket
@@ -689,19 +900,23 @@ def _extraire_entrees_brutes(flux):
     return entrees
 
 
-def recuperer_concours(on_progress=None, forcer_actualisation=False):
+def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desactives=None):
     """Télécharge/traite tous les flux RSS et renvoie (resultats, diagnostic).
 
     Important : cette fonction NE filtre PLUS par préférence utilisateur
     ("catégories à éviter"). Ce filtrage se fait désormais uniquement à
     l'affichage (voir ConcoursFinderApp._appliquer_preferences), pour que
     décocher une préférence restaure immédiatement les concours concernés
-    sans avoir besoin de relancer une recherche réseau complète."""
+    sans avoir besoin de relancer une recherche réseau complète.
+
+    `flux_desactives` : ensemble d'URLs de FLUX_RSS à ignorer complètement
+    (réglage "Sources" des paramètres — voir _ouvrir_parametres)."""
+    flux_actifs = [url for url in FLUX_RSS if url not in (flux_desactives or ())]
     resultats = []
     vus = set()
     supprimes = charger_supprimes()
     diagnostic = []
-    nb_total = len(FLUX_RSS)
+    nb_total = len(flux_actifs)
     nb_traites = 0
     nb_actualites_ecartees = 0
     nb_depuis_cache = 0
@@ -773,6 +988,8 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False):
             # de ces ajustements : le concours reste visible, juste moins bien classé.
             score = max(score, 1)
 
+            valeur_estimee_texte, valeur_estimee_nombre = extraire_valeur_estimee(f"{titre} {resume}")
+
             resultats.append({
                 "titre": titre,
                 "lien": lien,
@@ -780,7 +997,8 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False):
                 "date_limite_texte": date_limite_texte,
                 "date_limite_obj": date_limite_obj,
                 "resume": nettoyer_html(resume),
-                "valeur_estimee": extraire_valeur_estimee(f"{titre} {resume}"),
+                "valeur_estimee": valeur_estimee_texte,
+                "valeur_estimee_nombre": valeur_estimee_nombre,
                 "categories": categories_requises,
                 "score": score,
                 "source": url,
@@ -788,7 +1006,8 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False):
 
         nb_ajoutes = len(resultats) - nb_avant
         tag = " (cache)" if depuis_cache else ""
-        detail = f"{url}{tag} -> {nb_ajoutes} entrée(s), http={statut_http}"
+        nom_flux = FLUX_RSS_LIBELLES.get(url, url)
+        detail = f"{nom_flux}{tag} -> {nb_ajoutes} entrée(s), http={statut_http}"
         if bozo:
             detail += f", erreur parsing: {bozo_msg}"
         diagnostic.append(detail)
@@ -797,7 +1016,7 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False):
     #     réseau. C'est ce qui donne l'ouverture quasi-immédiate et économise
     #     à la fois batterie et data mobile. ---
     urls_a_telecharger = []
-    for url in FLUX_RSS:
+    for url in flux_actifs:
         if _cache_valide(url):
             entree = cache[url]
             nb_traites += 1
@@ -846,6 +1065,11 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False):
     nb_avant_dedup = len(resultats)
     resultats = deduplique_concours(resultats)
     nb_doublons = nb_avant_dedup - len(resultats)
+    # Redondant après un tri déjà décroissant, SAUF que deduplique_concours
+    # peut relever le score de certains concours (bonus multi-flux) : sans ce
+    # second tri, l'ordre affiché pourrait rester légèrement désynchronisé
+    # du score final pour ces concours-là.
+    resultats.sort(key=lambda c: c["score"], reverse=True)
     if nb_doublons:
         diagnostic.append(f"{nb_doublons} doublon(s) fusionné(s)")
     if nb_actualites_ecartees:
@@ -873,6 +1097,31 @@ def ouvrir_lien(url):
         webbrowser.open(url)
 
 
+def partager_concours(titre: str, lien: str):
+    """Partage un concours via le sélecteur natif Android (Intent.ACTION_SEND,
+    même mécanisme que "Partager" dans n'importe quelle app Android : SMS,
+    e-mail, WhatsApp...). Sur desktop, pas de sélecteur de partage système
+    équivalent : on copie le texte dans le presse-papiers à la place."""
+    texte = f"{titre} — {lien}"
+    if platform == "android":
+        try:
+            from jnius import autoclass, cast
+            Intent = autoclass("android.content.Intent")
+            String = autoclass("java.lang.String")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            intent = Intent(Intent.ACTION_SEND)
+            intent.setType("text/plain")
+            intent.putExtra(Intent.EXTRA_TEXT, cast("java.lang.CharSequence", String(texte)))
+            chooser = Intent.createChooser(intent, cast("java.lang.CharSequence", String("Partager le concours")))
+            currentActivity = cast("android.app.Activity", PythonActivity.mActivity)
+            currentActivity.startActivity(chooser)
+        except Exception as e:
+            print(f"Impossible de partager : {e}")
+    else:
+        from kivy.core.clipboard import Clipboard
+        Clipboard.copy(texte)
+
+
 # ================================== UI =====================================
 
 import threading
@@ -891,11 +1140,13 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.popup import Popup
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.textinput import TextInput
+from kivy.uix.progressbar import ProgressBar
 from kivy.uix.widget import Widget
-from kivy.metrics import dp
+from kivy.metrics import dp, sp
 
-
-Window.clearcolor = COULEUR_FOND
+# Window.clearcolor est fixé dans App.build(), APRÈS _appliquer_theme() —
+# pas ici au niveau module — pour refléter la préférence de thème choisie
+# par l'utilisateur (chargée depuis parametres.json).
 
 
 def stylise_bouton(bouton, couleur, rayon=10):
@@ -938,12 +1189,19 @@ class ConcoursFinderApp(App):
     TAILLE_LOT = 25  # nombre de cartes affichées à la fois (perf sur les grosses listes)
 
     def build(self):
+        self.parametres = charger_parametres()
+        # Doit être appelé avant TOUT widget/instruction Color : réassigne les
+        # variables de palette globales lues par le reste de build().
+        _appliquer_theme("clair" if self.parametres.get("theme_clair") else "sombre")
+        Window.clearcolor = COULEUR_FOND
+
         self.title = "Concours Finder"
         self.supprimes = charger_supprimes()
         self.preferences = charger_preferences()
         self.favoris = charger_favoris()
         self.historique = charger_historique()
         self.etat = charger_etat()
+        self._donnees_perimees = False
         # _resultats_bruts : dernier résultat de recherche réseau, JAMAIS modifié
         # par un changement de préférences. resultats_actuels : vue filtrée
         # dérivée de _resultats_bruts, recalculée à chaque changement de
@@ -953,7 +1211,10 @@ class ConcoursFinderApp(App):
         self.resultats_actuels = []
         self.page_actuelle = 1
         self.nb_affiches = self.TAILLE_LOT
-        self._cache_pages = {}  # évite de retélécharger une page déjà vérifiée dans la session
+        # Persisté sur disque (voir charger_cache_pages) : une page de détail déjà
+        # vérifiée reste en cache DUREE_CACHE_PAGES_SECONDES, même entre deux
+        # lancements de l'app, au lieu d'être reperdue à chaque redémarrage.
+        self._cache_pages = charger_cache_pages()
         self._lien_details_courant = None
         self._debounce_recherche = None
         root = BoxLayout(orientation="vertical", padding=(dp(14), dp(42), dp(14), dp(12)), spacing=dp(10))
@@ -971,7 +1232,7 @@ class ConcoursFinderApp(App):
 
         titre_app = Label(
             text="Concours Finder",
-            font_size=dp(20),
+            font_size=sp(20),
             bold=True,
             color=COULEUR_TEXTE,
             halign="left",
@@ -983,7 +1244,7 @@ class ConcoursFinderApp(App):
 
         accroche = Label(
             text="Les meilleurs concours du moment, triés pour toi",
-            font_size=dp(12),
+            font_size=sp(12),
             color=COULEUR_TEXTE_ATTENUE,
             size_hint=(1, None),
             height=dp(18),
@@ -998,8 +1259,9 @@ class ConcoursFinderApp(App):
             ("Favoris", "", self._ouvrir_favoris),
             ("Historique", "", self._ouvrir_historique),
             ("Options", "", self._ouvrir_preferences),
+            ("Paramètres", "", self._ouvrir_parametres),
         ):
-            btn = Button(text=texte_btn, font_size=dp(11), bold=True, color=COULEUR_TEXTE,
+            btn = Button(text=texte_btn, font_size=sp(11), bold=True, color=COULEUR_TEXTE,
                          size_hint=(1, 1))
             stylise_bouton(btn, COULEUR_ONGLET_INACTIF, rayon=15)
             btn.bind(on_press=callback)
@@ -1009,9 +1271,9 @@ class ConcoursFinderApp(App):
 
         self.bouton_recherche = Button(
             text="Rechercher les concours",
-            font_size=dp(15),
+            font_size=sp(15),
             bold=True,
-            color=(1, 1, 1, 1),
+            color=COULEUR_TEXTE_SUR_ACCENT,
             size_hint=(1, None),
             height=dp(46),
         )
@@ -1025,7 +1287,7 @@ class ConcoursFinderApp(App):
             hint_text="Filtrer par mot-clé (ex: voyage, PS5, iPhone...)",
             multiline=False,
             size_hint=(1, 1),
-            font_size=dp(13),
+            font_size=sp(13),
             background_color=COULEUR_CARTE_A,
             foreground_color=COULEUR_TEXTE,
             hint_text_color=COULEUR_TEXTE_ATTENUE,
@@ -1035,24 +1297,27 @@ class ConcoursFinderApp(App):
         self.champ_recherche.bind(text=self._sur_texte_recherche)
         ligne_recherche.add_widget(self.champ_recherche)
 
-        bouton_effacer = Button(text=ICONE_FERMER, font_size=dp(13), bold=True, color=COULEUR_TEXTE,
+        bouton_effacer = Button(text=ICONE_FERMER, font_size=sp(13), bold=True, color=COULEUR_TEXTE,
                                  size_hint=(None, 1), width=dp(42))
         stylise_bouton(bouton_effacer, COULEUR_ONGLET_INACTIF, rayon=12)
         bouton_effacer.bind(on_press=lambda inst: setattr(self.champ_recherche, "text", ""))
         ligne_recherche.add_widget(bouton_effacer)
+
+        # Tri manuel (score / échéance / valeur / alphabétique) : un tap fait
+        # défiler les options plutôt qu'un sélecteur séparé, pour rester compact.
+        libelle_tri_actuel = dict(TRIS_DISPONIBLES).get(self.parametres.get("tri", "score"), "Score")
+        self.bouton_tri = Button(text=f"Tri: {libelle_tri_actuel}", font_size=sp(11), bold=True,
+                                  color=COULEUR_TEXTE, size_hint=(None, 1), width=dp(100))
+        stylise_bouton(self.bouton_tri, COULEUR_ONGLET_INACTIF, rayon=12)
+        self.bouton_tri.bind(on_press=self._cycler_tri)
+        ligne_recherche.add_widget(self.bouton_tri)
         root.add_widget(ligne_recherche)
 
         # --- Onglets de filtrage par score, façon "pilules" (compacts) ---
         onglets = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(36), spacing=dp(6))
         self.boutons_pages = {}
-        libelles_pages = {
-            1: "Top lots",
-            2: "Bons plans",
-            3: "Petits lots",
-            4: "RS",
-        }
-        for num_page, libelle in libelles_pages.items():
-            btn = Button(text=libelle, font_size=dp(11), bold=True, color=COULEUR_TEXTE)
+        for num_page, libelle in LIBELLES_PAGES.items():
+            btn = Button(text=libelle, font_size=sp(11), bold=True, color=COULEUR_TEXTE)
             stylise_bouton(btn, COULEUR_ONGLET_INACTIF, rayon=16)
             btn.bind(on_press=lambda inst, p=num_page: self._changer_page(p))
             onglets.add_widget(btn)
@@ -1061,12 +1326,19 @@ class ConcoursFinderApp(App):
 
         # --- Recherche manuelle sur les réseaux sociaux, visible uniquement
         # sur l'onglet "RS" (Instagram/TikTok n'ont pas de flux RSS public,
-        # donc pas d'indexation automatique possible — voir RESEAUX_SOCIAUX_RECHERCHE). ---
+        # donc pas d'indexation automatique possible — voir RESEAUX_SOCIAUX_RECHERCHE).
+        # Les réseaux eux-mêmes s'affichent en colonne dans la liste principale
+        # (voir _ajouter_ligne_reseau_social) ; ce bloc ne contient que le champ
+        # hashtag partagé par tous. `disabled` est indispensable en plus de
+        # `opacity` : dans Kivy, opacity=0 rend un widget invisible mais ne
+        # bloque PAS le toucher, donc le champ restait cliquable/actif "dans le
+        # vide" sur les autres onglets sans ce réglage. ---
         self.bloc_reseaux = BoxLayout(orientation="vertical", size_hint=(1, None), height=0, spacing=dp(4))
         self.bloc_reseaux.opacity = 0
+        self.bloc_reseaux.disabled = True
         lbl_reseaux = Label(
             text="Chercher un hashtag sur :",
-            font_size=dp(10), color=COULEUR_TEXTE_ATTENUE,
+            font_size=sp(10), color=COULEUR_TEXTE_ATTENUE,
             size_hint=(1, None), height=dp(14), halign="left", valign="middle",
         )
         lbl_reseaux.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1077,7 +1349,7 @@ class ConcoursFinderApp(App):
         # avant d'appuyer sur un des boutons ci-dessous.
         ligne_hashtag = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(36), spacing=dp(4))
         lbl_diese = Label(
-            text="#", font_size=dp(15), bold=True, color=COULEUR_TEXTE_ATTENUE,
+            text="#", font_size=sp(15), bold=True, color=COULEUR_TEXTE_ATTENUE,
             size_hint=(None, 1), width=dp(14),
         )
         ligne_hashtag.add_widget(lbl_diese)
@@ -1085,7 +1357,7 @@ class ConcoursFinderApp(App):
             text=HASHTAG_PAR_DEFAUT,
             multiline=False,
             size_hint=(1, 1),
-            font_size=dp(13),
+            font_size=sp(13),
             background_color=COULEUR_CARTE_A,
             foreground_color=COULEUR_TEXTE,
             hint_text_color=COULEUR_TEXTE_ATTENUE,
@@ -1094,17 +1366,6 @@ class ConcoursFinderApp(App):
         )
         ligne_hashtag.add_widget(self.champ_hashtag)
         self.bloc_reseaux.add_widget(ligne_hashtag)
-
-        ligne_reseaux_boutons = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(32), spacing=dp(6))
-        for nom_reseau, url_template in RESEAUX_SOCIAUX_RECHERCHE:
-            btn_reseau = Button(text=nom_reseau, font_size=dp(11), bold=True, color=COULEUR_TEXTE, size_hint=(1, 1))
-            stylise_bouton(btn_reseau, COULEUR_ONGLET_INACTIF, rayon=14)
-            btn_reseau.bind(
-                on_press=lambda inst, tpl=url_template:
-                    ouvrir_lien(url_reseau_social(tpl, self.champ_hashtag.text))
-            )
-            ligne_reseaux_boutons.add_widget(btn_reseau)
-        self.bloc_reseaux.add_widget(ligne_reseaux_boutons)
         root.add_widget(self.bloc_reseaux)
 
         self._maj_style_onglets()
@@ -1114,7 +1375,7 @@ class ConcoursFinderApp(App):
             text="Appuie sur le bouton pour lancer la recherche.",
             size_hint=(1, None),
             height=dp(20),
-            font_size=dp(12),
+            font_size=sp(12),
             color=COULEUR_TEXTE_ATTENUE,
             halign="left",
             valign="middle",
@@ -1122,9 +1383,15 @@ class ConcoursFinderApp(App):
         self.statut.bind(size=lambda inst, val: setattr(inst, "text_size", val))
         root.add_widget(self.statut)
 
+        # Barre de progression réelle pendant la recherche (masquée le reste
+        # du temps, hauteur 0) — remplace l'ancien "x/y flux vérifiés" texte
+        # seul, qui ne donnait aucun repère visuel de l'avancement.
+        self.barre_progression = ProgressBar(max=1, value=0, size_hint=(1, None), height=0)
+        root.add_widget(self.barre_progression)
+
         # Indicateur discret pour le "tire vers le bas pour rafraîchir"
         self.indicateur_pull = Label(
-            text="", font_size=dp(11), color=COULEUR_ACCENT, bold=True,
+            text="", font_size=sp(11), color=COULEUR_ACCENT, bold=True,
             size_hint=(1, None), height=0, halign="center", valign="middle",
         )
         self.indicateur_pull.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1187,13 +1454,26 @@ class ConcoursFinderApp(App):
             self._debounce_recherche.cancel()
         self._debounce_recherche = Clock.schedule_once(lambda dt: self._afficher_page(), 0.3)
 
+    def _cycler_tri(self, instance):
+        """Un tap fait passer au tri suivant dans TRIS_DISPONIBLES (boucle)."""
+        ids = [tid for tid, _libelle in TRIS_DISPONIBLES]
+        actuel = self.parametres.get("tri", "score")
+        suivant = ids[(ids.index(actuel) + 1) % len(ids)] if actuel in ids else ids[0]
+        self.parametres["tri"] = suivant
+        sauvegarder_parametres(self.parametres)
+        self.bouton_tri.text = f"Tri: {dict(TRIS_DISPONIBLES)[suivant]}"
+        self._afficher_page()
+
     def _verifier_auto_refresh(self, *_a):
+        frequence_heures = self.parametres.get("frequence_refresh_heures", 24)
+        if frequence_heures <= 0:
+            return  # rafraîchissement auto désactivé dans les paramètres
         if self.bouton_recherche.disabled:
             return  # une recherche est déjà en cours
         derniere = self.etat.get("derniere_recherche")
         if derniere:
             try:
-                if (datetime.now() - datetime.fromisoformat(derniere)).total_seconds() < 24 * 3600:
+                if (datetime.now() - datetime.fromisoformat(derniere)).total_seconds() < frequence_heures * 3600:
                     return
             except Exception:
                 pass
@@ -1231,7 +1511,7 @@ class ConcoursFinderApp(App):
 
         sous_titre = Label(
             text="Coche ce que tu ne veux plus voir apparaître :",
-            font_size=dp(13), color=COULEUR_TEXTE_ATTENUE,
+            font_size=sp(13), color=COULEUR_TEXTE_ATTENUE,
             size_hint_y=None, height=dp(24), halign="left", valign="middle",
         )
         sous_titre.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1252,7 +1532,7 @@ class ConcoursFinderApp(App):
             ligne.bind(size=lambda inst, val, rect=rect: setattr(rect, "size", inst.size))
             case = CheckBox(active=self.preferences.get(cid, False), size_hint=(None, 1), width=dp(38),
                              color=COULEUR_ACCENT)
-            lbl = Label(text=libelle, font_size=dp(14), color=COULEUR_TEXTE, halign="left", valign="middle")
+            lbl = Label(text=libelle, font_size=sp(14), color=COULEUR_TEXTE, halign="left", valign="middle")
             lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
             ligne.add_widget(case)
             ligne.add_widget(lbl)
@@ -1261,7 +1541,7 @@ class ConcoursFinderApp(App):
         scroll.add_widget(grille)
         contenu.add_widget(scroll)
 
-        bouton_enregistrer = Button(text="Enregistrer", bold=True, color=(1, 1, 1, 1),
+        bouton_enregistrer = Button(text="Enregistrer", bold=True, color=COULEUR_TEXTE_SUR_ACCENT,
                                      size_hint_y=None, height=dp(52))
         stylise_bouton(bouton_enregistrer, COULEUR_ACCENT, rayon=14)
         contenu.add_widget(bouton_enregistrer)
@@ -1282,6 +1562,112 @@ class ConcoursFinderApp(App):
             sauvegarder_preferences(self.preferences)
             self._appliquer_preferences()
             popup.dismiss()
+
+        bouton_enregistrer.bind(on_press=_enregistrer)
+        popup.open()
+
+    def _ouvrir_parametres(self, instance):
+        """Popup "Paramètres" : thème, fréquence de rafraîchissement auto et
+        sources RSS actives — distinct de "Options" (catégories à éviter)
+        pour ne pas mélanger des réglages de nature différente."""
+        contenu = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(16))
+        scroll = ScrollView()
+        grille = BoxLayout(orientation="vertical", spacing=dp(14), size_hint_y=None)
+        grille.bind(minimum_height=grille.setter("height"))
+
+        def _ligne_carte():
+            ligne = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(42), spacing=dp(10),
+                               padding=(dp(10), 0, dp(10), 0))
+            with ligne.canvas.before:
+                Color(*COULEUR_CARTE_A)
+                rect = RoundedRectangle(radius=[dp(10)], pos=ligne.pos, size=ligne.size)
+            ligne.bind(pos=lambda inst, val, rect=rect: setattr(rect, "pos", inst.pos))
+            ligne.bind(size=lambda inst, val, rect=rect: setattr(rect, "size", inst.size))
+            return ligne
+
+        def _titre_section(texte):
+            lbl = Label(text=texte, font_size=sp(12), bold=True, color=COULEUR_TEXTE_ATTENUE,
+                        size_hint_y=None, height=dp(20), halign="left", valign="middle")
+            lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            return lbl
+
+        # --- Thème (appliqué au prochain lancement, voir _appliquer_theme) ---
+        grille.add_widget(_titre_section("APPARENCE"))
+        ligne_theme = _ligne_carte()
+        case_theme = CheckBox(active=self.parametres.get("theme_clair", False),
+                               size_hint=(None, 1), width=dp(38), color=COULEUR_ACCENT)
+        lbl_theme = Label(text="Thème clair (redémarrage nécessaire)", font_size=sp(13),
+                           color=COULEUR_TEXTE, halign="left", valign="middle")
+        lbl_theme.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        ligne_theme.add_widget(case_theme)
+        ligne_theme.add_widget(lbl_theme)
+        grille.add_widget(ligne_theme)
+
+        # --- Fréquence de rafraîchissement automatique ---
+        grille.add_widget(_titre_section("RAFRAÎCHISSEMENT AUTOMATIQUE"))
+        ligne_frequence = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(40), spacing=dp(6))
+        boutons_frequence = {}
+        etat_frequence = {"valeur": self.parametres.get("frequence_refresh_heures", 24)}
+
+        def _choisir_frequence(heures):
+            etat_frequence["valeur"] = heures
+            for h, btn_f in boutons_frequence.items():
+                actif = h == heures
+                btn_f.couleur_instr.rgba = COULEUR_ACCENT if actif else COULEUR_ONGLET_INACTIF
+                btn_f.color = COULEUR_TEXTE_SUR_ACCENT if actif else COULEUR_TEXTE
+
+        for libelle, heures in FREQUENCES_RAFRAICHISSEMENT:
+            btn_f = Button(text=libelle, font_size=sp(12), bold=True, size_hint=(1, 1))
+            stylise_bouton(btn_f, COULEUR_ONGLET_INACTIF, rayon=14)
+            btn_f.bind(on_press=lambda inst, h=heures: _choisir_frequence(h))
+            ligne_frequence.add_widget(btn_f)
+            boutons_frequence[heures] = btn_f
+        grille.add_widget(ligne_frequence)
+        _choisir_frequence(etat_frequence["valeur"])
+
+        # --- Sources RSS actives ---
+        grille.add_widget(_titre_section("SOURCES RSS ACTIVES"))
+        flux_desactives_actuels = set(self.parametres.get("flux_desactives", []))
+        cases_flux = {}
+        for libelle, url in FLUX_RSS_AVEC_LIBELLES:
+            ligne_flux = _ligne_carte()
+            case_flux = CheckBox(active=url not in flux_desactives_actuels,
+                                  size_hint=(None, 1), width=dp(38), color=COULEUR_ACCENT)
+            lbl_flux = Label(text=libelle, font_size=sp(13), color=COULEUR_TEXTE,
+                              halign="left", valign="middle")
+            lbl_flux.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            ligne_flux.add_widget(case_flux)
+            ligne_flux.add_widget(lbl_flux)
+            grille.add_widget(ligne_flux)
+            cases_flux[url] = case_flux
+
+        scroll.add_widget(grille)
+        contenu.add_widget(scroll)
+
+        bouton_enregistrer = Button(text="Enregistrer", bold=True, color=COULEUR_TEXTE_SUR_ACCENT,
+                                     size_hint_y=None, height=dp(52))
+        stylise_bouton(bouton_enregistrer, COULEUR_ACCENT, rayon=14)
+        contenu.add_widget(bouton_enregistrer)
+
+        popup = Popup(
+            title="Paramètres",
+            content=contenu,
+            size_hint=(0.92, 0.9),
+            separator_color=COULEUR_ACCENT,
+            title_color=COULEUR_TEXTE,
+            background_color=COULEUR_FOND,
+            title_size=dp(16),
+        )
+
+        def _enregistrer(inst):
+            theme_avant = self.parametres.get("theme_clair", False)
+            self.parametres["theme_clair"] = case_theme.active
+            self.parametres["frequence_refresh_heures"] = etat_frequence["valeur"]
+            self.parametres["flux_desactives"] = [url for url, case in cases_flux.items() if not case.active]
+            sauvegarder_parametres(self.parametres)
+            popup.dismiss()
+            if case_theme.active != theme_avant:
+                self.statut.text = "Thème enregistré — redémarre l'app pour l'appliquer."
 
         bouton_enregistrer.bind(on_press=_enregistrer)
         popup.open()
@@ -1390,7 +1776,7 @@ class ConcoursFinderApp(App):
 
         if not items:
             lbl = Label(
-                text=message_vide, font_size=dp(14), color=COULEUR_TEXTE_ATTENUE,
+                text=message_vide, font_size=sp(14), color=COULEUR_TEXTE_ATTENUE,
                 size_hint_y=None, height=dp(80), halign="left", valign="top",
             )
             lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1416,16 +1802,16 @@ class ConcoursFinderApp(App):
                 carte.bind(pos=_sync_bordure, size=_sync_bordure)
 
                 titre_lbl = Label(
-                    text=item["titre"], font_size=dp(15), bold=True, color=COULEUR_TEXTE,
+                    text=item["titre"], font_size=sp(15), bold=True, color=COULEUR_TEXTE,
                     size_hint_y=None, halign="left", valign="top",
                 )
                 titre_lbl.bind(width=lambda inst, w, tl=titre_lbl: setattr(tl, "text_size", (w, None)))
 
                 boutons_item = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(42), spacing=dp(8))
-                b_ouvrir = Button(text=f"Ouvrir {ICONE_FLECHE}", font_size=dp(12), bold=True, color=(1, 1, 1, 1))
+                b_ouvrir = Button(text=f"Ouvrir {ICONE_FLECHE}", font_size=sp(12), bold=True, color=COULEUR_TEXTE_SUR_ACCENT)
                 stylise_bouton(b_ouvrir, COULEUR_ACCENT, rayon=12)
                 b_ouvrir.bind(on_press=lambda inst, it=item: on_ouvrir(it))
-                b_retirer = Button(text=texte_retirer, font_size=dp(12), bold=True, color=COULEUR_TEXTE)
+                b_retirer = Button(text=texte_retirer, font_size=sp(12), bold=True, color=COULEUR_TEXTE)
                 stylise_bouton(b_retirer, COULEUR_ONGLET_INACTIF, rayon=12)
                 b_retirer.bind(on_press=lambda inst, it=item: on_retirer(it))
                 boutons_item.add_widget(b_ouvrir)
@@ -1439,7 +1825,7 @@ class ConcoursFinderApp(App):
                 carte.add_widget(titre_lbl)
                 if sous_texte:
                     sous_lbl = Label(
-                        text=sous_texte, font_size=dp(11), color=COULEUR_TEXTE_ATTENUE,
+                        text=sous_texte, font_size=sp(11), color=COULEUR_TEXTE_ATTENUE,
                         size_hint_y=None, height=dp(18), halign="left", valign="middle",
                     )
                     sous_lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1468,13 +1854,26 @@ class ConcoursFinderApp(App):
         for num_page, btn in self.boutons_pages.items():
             actif = num_page == self.page_actuelle
             btn.couleur_instr.rgba = COULEUR_ACCENT if actif else COULEUR_ONGLET_INACTIF
+            btn.color = COULEUR_TEXTE_SUR_ACCENT if actif else COULEUR_TEXTE
+
+    def _maj_badges_onglets(self):
+        """Affiche le nombre de résultats de chaque onglet dans son libellé
+        (ex: "Top lots (12)"), recalculé à chaque changement de résultats,
+        de préférences ou de mot-clé filtré."""
+        if not hasattr(self, "boutons_pages"):
+            return
+        for num_page, btn in self.boutons_pages.items():
+            nb = len(self._filtrer_page(self.resultats_actuels, num_page))
+            libelle_base = LIBELLES_PAGES[num_page]
+            btn.text = f"{libelle_base} ({nb})"
 
     def _maj_visibilite_reseaux_sociaux(self):
-        """Le bloc de recherche manuelle Instagram/TikTok/Facebook/X n'a de
-        sens que sur l'onglet "RS" : masqué (hauteur 0) sur les autres."""
+        """Le champ hashtag n'a de sens que sur l'onglet "RS" : masqué
+        (hauteur 0, invisible et désactivé) sur les autres."""
         visible = self.page_actuelle == 4
-        self.bloc_reseaux.height = dp(90) if visible else 0
+        self.bloc_reseaux.height = dp(54) if visible else 0
         self.bloc_reseaux.opacity = 1 if visible else 0
+        self.bloc_reseaux.disabled = not visible
 
     def _changer_page(self, num_page):
         self.page_actuelle = num_page
@@ -1485,6 +1884,9 @@ class ConcoursFinderApp(App):
     def lancer_recherche(self, instance, forcer=False):
         self.bouton_recherche.disabled = True
         self.statut.text = "Recherche en cours..."
+        self.barre_progression.max = 1
+        self.barre_progression.value = 0
+        self.barre_progression.height = dp(6)
         self.liste.clear_widgets()
         threading.Thread(target=self._recherche_thread, args=(forcer,), daemon=True).start()
 
@@ -1493,6 +1895,7 @@ class ConcoursFinderApp(App):
             resultats, diagnostic = recuperer_concours(
                 on_progress=lambda i, total, url: self._maj_progression(i, total, url),
                 forcer_actualisation=forcer,
+                flux_desactives=self.parametres.get("flux_desactives", []),
             )
         except Exception as e:
             self._afficher_erreur(str(e))
@@ -1502,14 +1905,19 @@ class ConcoursFinderApp(App):
     @mainthread
     def _maj_progression(self, i, total, url):
         self.statut.text = f"Vérification de {_nom_source(url)}... ({i}/{total})"
+        self.barre_progression.max = max(total, 1)
+        self.barre_progression.value = i
 
     @mainthread
     def _afficher_erreur(self, message):
         self.statut.text = f"Erreur : {message}"
         self.bouton_recherche.disabled = False
+        self.barre_progression.height = 0
 
     @mainthread
     def _afficher_resultats(self, resultats, diagnostic=None):
+        self.barre_progression.height = 0  # recherche terminée, quel qu'en soit le résultat
+
         # Sécurité supplémentaire : filtre les concours déjà supprimés
         resultats = [c for c in resultats if c["lien"] not in self.supprimes]
         self.dernier_diagnostic = diagnostic
@@ -1523,20 +1931,33 @@ class ConcoursFinderApp(App):
         )
 
         if not resultats and diagnostic:
+            # Mode hors-ligne : plutôt qu'une liste vide, on retombe sur le
+            # dernier jeu de résultats obtenu avec succès (persisté sur
+            # disque, survit aux redémarrages), avec un bandeau d'avertissement
+            # bien visible — mieux qu'un écran vide en cas de réseau capricieux.
+            derniers_resultats = charger_derniers_resultats()
+            if derniers_resultats:
+                self._resultats_bruts = derniers_resultats
+                self._donnees_perimees = True
+                self._appliquer_preferences()
+                self.bouton_recherche.disabled = False
+                return
+
             self._resultats_bruts = []
             self.resultats_actuels = []
+            self._donnees_perimees = False
             self.liste.clear_widgets()
             lbl_msg = Label(
                 text="Aucun concours trouvé. Vérifie ta connexion et réessaie, "
                      "ou consulte le détail technique ci-dessous.",
-                size_hint_y=None, height=dp(50), font_size=dp(14),
+                size_hint_y=None, height=dp(50), font_size=sp(14),
                 color=COULEUR_TEXTE_ATTENUE, halign="left", valign="middle",
             )
             lbl_msg.bind(size=lambda inst, val: setattr(inst, "text_size", val))
             self.liste.add_widget(lbl_msg)
 
             bouton_reessayer = Button(
-                text="Réessayer", bold=True, color=(1, 1, 1, 1),
+                text="Réessayer", bold=True, color=COULEUR_TEXTE_SUR_ACCENT,
                 size_hint_y=None, height=dp(48),
             )
             stylise_bouton(bouton_reessayer, COULEUR_ACCENT, rayon=12)
@@ -1548,7 +1969,7 @@ class ConcoursFinderApp(App):
                     text=ligne_diag,
                     size_hint_y=None,
                     height=dp(40),
-                    font_size=dp(11),
+                    font_size=sp(11),
                     halign="left",
                     valign="top",
                     color=(1, 0.5, 0.5, 1),
@@ -1566,6 +1987,8 @@ class ConcoursFinderApp(App):
         # _appliquer_preferences qui dérive resultats_actuels à partir
         # d'elle, ce qui rend le filtrage réversible (voir plus haut).
         self._resultats_bruts = resultats
+        self._donnees_perimees = False
+        sauvegarder_derniers_resultats(resultats)
         self._appliquer_preferences()
         self.bouton_recherche.disabled = False
 
@@ -1582,21 +2005,51 @@ class ConcoursFinderApp(App):
         mot_cle = self.champ_recherche.text.strip().lower() if hasattr(self, "champ_recherche") else ""
         if mot_cle:
             page = [c for c in page if mot_cle in c["titre"].lower() or mot_cle in c.get("resume", "").lower()]
+
+        # Le tri "score" n'a rien à faire : `resultats` est déjà trié par score
+        # décroissant en amont (voir recuperer_concours). Les autres tris sont
+        # appliqués ici, sur la page déjà filtrée (moins d'éléments à trier).
+        tri = self.parametres.get("tri", "score") if hasattr(self, "parametres") else "score"
+        if tri == "date":
+            # Sans échéance connue = en dernier (date lointaine arbitraire),
+            # plutôt que planter ou les mélanger au hasard.
+            page = sorted(page, key=lambda c: c.get("date_limite_obj") or date.max)
+        elif tri == "valeur":
+            page = sorted(page, key=lambda c: c.get("valeur_estimee_nombre") or 0, reverse=True)
+        elif tri == "alpha":
+            page = sorted(page, key=lambda c: c["titre"].lower())
+
         return page
 
     def _afficher_page(self, reinitialiser=True):
         if reinitialiser:
             self.nb_affiches = self.TAILLE_LOT
 
+        self._maj_badges_onglets()
         self.liste.clear_widgets()
+
+        if getattr(self, "_donnees_perimees", False):
+            lbl_perime = Label(
+                text="ATTENTION : recherche impossible (réseau ?) — affichage des derniers "
+                     "résultats connus, potentiellement anciens.",
+                font_size=sp(11), bold=True, color=COULEUR_URGENCE,
+                size_hint_y=None, height=dp(36), halign="left", valign="middle",
+            )
+            lbl_perime.bind(width=lambda inst, w: setattr(lbl_perime, "text_size", (w, None)))
+            lbl_perime.bind(texture_size=lambda inst, ts: setattr(lbl_perime, "height", max(ts[1], dp(20))))
+            self.liste.add_widget(lbl_perime)
+
+        if self.page_actuelle == 4:
+            for nom_reseau, url_template in RESEAUX_SOCIAUX_RECHERCHE:
+                self._ajouter_ligne_reseau_social(nom_reseau, url_template)
+
         mot_cle = self.champ_recherche.text.strip() if hasattr(self, "champ_recherche") else ""
         page_complete = self._filtrer_page(self.resultats_actuels, self.page_actuelle)
         page = page_complete[: self.nb_affiches]
 
-        libelles = {1: "Top lots", 2: "Bons plans", 3: "Petits lots", 4: "RS"}
         self.statut.text = (
             f"{len(self.resultats_actuels)} concours au total — "
-            f"{len(page_complete)} correspondent ({libelles[self.page_actuelle]})"
+            f"{len(page_complete)} correspondent ({LIBELLES_PAGES[self.page_actuelle]})"
         )
 
         if not page_complete:
@@ -1606,7 +2059,7 @@ class ConcoursFinderApp(App):
                 else "Aucun concours ne correspond à ce filtre."
             )
             lbl_vide = Label(
-                text=message, font_size=dp(14), color=COULEUR_TEXTE_ATTENUE,
+                text=message, font_size=sp(14), color=COULEUR_TEXTE_ATTENUE,
                 size_hint_y=None, height=dp(60), halign="center", valign="middle",
             )
             lbl_vide.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1629,7 +2082,7 @@ class ConcoursFinderApp(App):
         if reste > 0:
             bouton_plus = Button(
                 text=f"Afficher plus ({reste} restant(s))",
-                font_size=dp(14), bold=True, color=(1, 1, 1, 1),
+                font_size=sp(14), bold=True, color=(1, 1, 1, 1),
                 size_hint_y=None, height=dp(48),
             )
             stylise_bouton(bouton_plus, COULEUR_ONGLET_INACTIF, rayon=12)
@@ -1639,6 +2092,45 @@ class ConcoursFinderApp(App):
     def _afficher_plus(self):
         self.nb_affiches += self.TAILLE_LOT
         self._afficher_page(reinitialiser=False)
+
+    def _ajouter_ligne_reseau_social(self, nom_reseau, url_template):
+        """Une carte par réseau social (Instagram/TikTok/Facebook/X), affichée
+        en colonne en haut de l'onglet "RS" — même style de carte que les
+        concours, pour rester cohérent avec les autres onglets."""
+        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(54), spacing=dp(10),
+                           padding=(dp(0), dp(0), dp(12), dp(0)))
+
+        with ligne.canvas.before:
+            Color(*COULEUR_CARTE_A)
+            rect = RoundedRectangle(radius=[dp(16)], pos=ligne.pos, size=ligne.size)
+            Color(*COULEUR_CARTE_BORDURE)
+            bordure = Line(rounded_rectangle=(ligne.x, ligne.y, ligne.width, ligne.height, dp(16)), width=dp(1))
+
+        def _sync_fond(inst, *_a):
+            rect.pos = inst.pos
+            rect.size = inst.size
+            bordure.rounded_rectangle = (inst.x, inst.y, inst.width, inst.height, dp(16))
+
+        ligne.bind(pos=_sync_fond, size=_sync_fond)
+
+        item = Button(
+            text=f"Chercher sur {nom_reseau} {ICONE_FLECHE}",
+            halign="left",
+            valign="middle",
+            font_size=sp(15),
+            bold=True,
+            background_color=(0, 0, 0, 0),
+            background_normal="",
+            background_down="",
+            color=COULEUR_TEXTE,
+            padding=(dp(14), 0),
+        )
+        item.bind(size=lambda inst, val: setattr(item, "text_size", val))
+        item.bind(on_press=lambda inst, tpl=url_template:
+                   ouvrir_lien(url_reseau_social(tpl, self.champ_hashtag.text)))
+        ligne.add_widget(item)
+
+        self.liste.add_widget(ligne)
 
     def _ajouter_ligne_concours(self, i, c):
         libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
@@ -1675,9 +2167,9 @@ class ConcoursFinderApp(App):
         texte_badge = f"{icone_palier} {libelle_palier}" if icone_palier else libelle_palier
         badge = Label(
             text=texte_badge,
-            font_size=dp(10),
+            font_size=sp(10),
             bold=True,
-            color=(0.07, 0.07, 0.07, 1) if couleur_palier == COULEUR_PREMIUM else (1, 1, 1, 1),
+            color=couleur_texte_badge(couleur_palier),
             size_hint=(None, None),
             height=dp(20),
             halign="center",
@@ -1694,7 +2186,7 @@ class ConcoursFinderApp(App):
         ligne_badge.add_widget(badge)
 
         score_lbl = Label(
-            text=f"{c['score']} pts", font_size=dp(10), color=COULEUR_TEXTE_ATTENUE,
+            text=f"{c['score']} pts", font_size=sp(10), color=COULEUR_TEXTE_ATTENUE,
             size_hint=(None, 1), width=dp(42), halign="left", valign="middle",
         )
         score_lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1707,7 +2199,7 @@ class ConcoursFinderApp(App):
                 texte_urgence = "Dernier jour" if jours_restants == 0 else f"J-{jours_restants}"
                 urgence = Label(
                     text=texte_urgence,
-                    font_size=dp(9),
+                    font_size=sp(9),
                     bold=True,
                     color=(1, 1, 1, 1),
                     size_hint=(None, None),
@@ -1731,7 +2223,7 @@ class ConcoursFinderApp(App):
             halign="left",
             valign="top",
             size_hint_y=None,
-            font_size=dp(15),
+            font_size=sp(15),
             bold=True,
             background_color=(0, 0, 0, 0),
             background_normal="",
@@ -1754,14 +2246,15 @@ class ConcoursFinderApp(App):
         ligne.add_widget(contenu)
 
         # --- Actions secondaires, regroupées à droite (favori en icône, puis suppression) ---
-        actions = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(40), spacing=dp(6),
+        actions = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(48), spacing=dp(6),
                              padding=(0, dp(10), 0, dp(10)))
 
         est_favori = self._est_favori(c["lien"])
         bouton_fav = Button(
             text=ICONE_FAVORI_PLEIN if est_favori else ICONE_FAVORI_VIDE,
-            font_size=dp(10), bold=True, color=(1, 1, 1, 1),
-            size_hint=(None, None), size=(dp(32), dp(32)),
+            font_size=sp(10), bold=True,
+            color=COULEUR_TEXTE_SUR_ACCENT if est_favori else COULEUR_TEXTE,
+            size_hint=(None, None), size=(dp(40), dp(40)),
         )
         stylise_bouton(bouton_fav, COULEUR_ACCENT if est_favori else COULEUR_ONGLET_INACTIF, rayon=16)
 
@@ -1769,11 +2262,14 @@ class ConcoursFinderApp(App):
             nouvel_etat = self._basculer_favori(c)
             bouton_fav.text = ICONE_FAVORI_PLEIN if nouvel_etat else ICONE_FAVORI_VIDE
             bouton_fav.couleur_instr.rgba = COULEUR_ACCENT if nouvel_etat else COULEUR_ONGLET_INACTIF
+            bouton_fav.color = COULEUR_TEXTE_SUR_ACCENT if nouvel_etat else COULEUR_TEXTE
 
         bouton_fav.bind(on_press=_on_press_fav)
         actions.add_widget(bouton_fav)
 
-        case = CheckBox(size_hint=(None, None), size=(dp(28), dp(28)), color=COULEUR_TEXTE)
+        # Zone tactile élargie à dp(44) (minimum recommandé Android/WCAG pour une
+        # cible tactile fiable) au lieu des dp(28) d'origine, trop petits.
+        case = CheckBox(size_hint=(None, None), size=(dp(44), dp(44)), color=COULEUR_TEXTE)
         case.bind(active=lambda inst, valeur, lien=c["lien"], ligne=ligne:
                   self._supprimer_concours(lien, ligne) if valeur else None)
         actions.add_widget(case)
@@ -1793,7 +2289,7 @@ class ConcoursFinderApp(App):
 
         # --- Barre du haut : retour + favori ---
         barre_haut = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(40), spacing=dp(8))
-        bouton_retour = Button(text="< Retour", font_size=dp(13), bold=True, color=COULEUR_TEXTE,
+        bouton_retour = Button(text="< Retour", font_size=sp(13), bold=True, color=COULEUR_TEXTE,
                                 size_hint=(None, 1), width=dp(90))
         stylise_bouton(bouton_retour, COULEUR_ONGLET_INACTIF, rayon=14)
         bouton_retour.bind(on_press=lambda inst: self._retour_a_la_liste())
@@ -1803,7 +2299,8 @@ class ConcoursFinderApp(App):
         est_favori = self._est_favori(c["lien"])
         bouton_favori = Button(
             text=f"{ICONE_FAVORI_PLEIN} favori" if est_favori else f"{ICONE_FAVORI_VIDE} favori",
-            font_size=dp(12), bold=True, color=(1, 1, 1, 1),
+            font_size=sp(12), bold=True,
+            color=COULEUR_TEXTE_SUR_ACCENT if est_favori else COULEUR_TEXTE,
             size_hint=(None, 1), width=dp(90),
         )
         stylise_bouton(bouton_favori, COULEUR_ACCENT if est_favori else COULEUR_ONGLET_INACTIF, rayon=14)
@@ -1812,9 +2309,16 @@ class ConcoursFinderApp(App):
             nouvel_etat = self._basculer_favori(c)
             bouton_favori.text = f"{ICONE_FAVORI_PLEIN} favori" if nouvel_etat else f"{ICONE_FAVORI_VIDE} favori"
             bouton_favori.couleur_instr.rgba = COULEUR_ACCENT if nouvel_etat else COULEUR_ONGLET_INACTIF
+            bouton_favori.color = COULEUR_TEXTE_SUR_ACCENT if nouvel_etat else COULEUR_TEXTE
 
         bouton_favori.bind(on_press=_on_press_favori)
         barre_haut.add_widget(bouton_favori)
+
+        bouton_partager = Button(text="Partager", font_size=sp(12), bold=True, color=COULEUR_TEXTE,
+                                  size_hint=(None, 1), width=dp(84))
+        stylise_bouton(bouton_partager, COULEUR_ONGLET_INACTIF, rayon=14)
+        bouton_partager.bind(on_press=lambda inst, c=c: partager_concours(c["titre"], c["lien"]))
+        barre_haut.add_widget(bouton_partager)
         page.add_widget(barre_haut)
 
         # --- Contenu déroulant ---
@@ -1825,8 +2329,8 @@ class ConcoursFinderApp(App):
         libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
         texte_badge = f"{icone_palier} {libelle_palier}" if icone_palier else libelle_palier
         badge = Label(
-            text=texte_badge, font_size=dp(12), bold=True,
-            color=(0.07, 0.07, 0.07, 1) if couleur_palier == COULEUR_PREMIUM else (1, 1, 1, 1),
+            text=texte_badge, font_size=sp(12), bold=True,
+            color=couleur_texte_badge(couleur_palier),
             size_hint=(None, None), height=dp(26), halign="center", valign="middle",
         )
         badge.texture_update()
@@ -1843,7 +2347,7 @@ class ConcoursFinderApp(App):
         contenu.add_widget(ligne_badge)
 
         titre_lbl = Label(
-            text=c["titre"], font_size=dp(24), bold=True, color=COULEUR_TEXTE,
+            text=c["titre"], font_size=sp(24), bold=True, color=COULEUR_TEXTE,
             size_hint_y=None, halign="left", valign="top",
         )
         titre_lbl.bind(width=lambda inst, w: setattr(titre_lbl, "text_size", (w, None)))
@@ -1855,7 +2359,7 @@ class ConcoursFinderApp(App):
         ligne_etoiles = BoxLayout(size_hint_y=None, height=dp(26), spacing=dp(3), padding=(0, dp(6), 0, dp(4)))
         for i in range(5):
             etoile = Label(
-                text=ICONE_ETOILE, font_size=dp(20), bold=True,
+                text=ICONE_ETOILE, font_size=sp(20), bold=True,
                 color=COULEUR_PREMIUM if i < nb_etoiles else COULEUR_ONGLET_INACTIF,
                 size_hint=(None, 1), width=dp(20),
             )
@@ -1866,7 +2370,7 @@ class ConcoursFinderApp(App):
         def _ajouter_section(titre_section, widget_valeur):
             contenu.add_widget(_widget_separateur())
             lbl_titre = Label(
-                text=titre_section, font_size=dp(12), color=COULEUR_TEXTE_ATTENUE,
+                text=titre_section, font_size=sp(12), color=COULEUR_TEXTE_ATTENUE,
                 size_hint_y=None, height=dp(18), halign="left", valign="middle",
             )
             lbl_titre.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1876,7 +2380,7 @@ class ConcoursFinderApp(App):
         # --- Valeur estimée (si détectée) ---
         if c.get("valeur_estimee"):
             lbl_valeur = Label(
-                text=c["valeur_estimee"], font_size=dp(22), bold=True, color=COULEUR_PREMIUM,
+                text=c["valeur_estimee"], font_size=sp(22), bold=True, color=COULEUR_PREMIUM,
                 size_hint_y=None, height=dp(30), halign="left", valign="middle",
             )
             lbl_valeur.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1892,7 +2396,7 @@ class ConcoursFinderApp(App):
                 return
             infos_affichees.add(libelle)
             lbl = Label(
-                text=f"- {libelle}", font_size=dp(15), color=COULEUR_TEXTE,
+                text=f"- {libelle}", font_size=sp(15), color=COULEUR_TEXTE,
                 size_hint_y=None, height=dp(26), halign="left", valign="middle",
             )
             lbl.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1916,7 +2420,7 @@ class ConcoursFinderApp(App):
             else:
                 texte_echeance = f"{jours_restants} jours"
             lbl_echeance = Label(
-                text=texte_echeance, font_size=dp(20), bold=True,
+                text=texte_echeance, font_size=sp(20), bold=True,
                 color=COULEUR_URGENCE if jours_restants <= 5 else COULEUR_TEXTE,
                 size_hint_y=None, height=dp(28), halign="left", valign="middle",
             )
@@ -1924,7 +2428,7 @@ class ConcoursFinderApp(App):
             _ajouter_section("EXPIRE DANS", lbl_echeance)
         elif c.get("date_limite_texte"):
             lbl_echeance = Label(
-                text=c["date_limite_texte"], font_size=dp(15), bold=True, color=COULEUR_URGENCE,
+                text=c["date_limite_texte"], font_size=sp(15), bold=True, color=COULEUR_URGENCE,
                 size_hint_y=None, height=dp(22), halign="left", valign="middle",
             )
             lbl_echeance.bind(size=lambda inst, val: setattr(inst, "text_size", val))
@@ -1934,7 +2438,7 @@ class ConcoursFinderApp(App):
 
         statut_verif = Label(
             text="Vérification des informations sur la page du concours...",
-            font_size=dp(12), color=COULEUR_TEXTE_ATTENUE,
+            font_size=sp(12), color=COULEUR_TEXTE_ATTENUE,
             size_hint_y=None, height=dp(34), halign="left", valign="top",
         )
         statut_verif.bind(width=lambda inst, w: setattr(statut_verif, "text_size", (w, None)))
@@ -1942,13 +2446,13 @@ class ConcoursFinderApp(App):
 
         if c.get("resume"):
             lbl_resume_titre = Label(
-                text="RÉSUMÉ", font_size=dp(12), color=COULEUR_TEXTE_ATTENUE,
+                text="RÉSUMÉ", font_size=sp(12), color=COULEUR_TEXTE_ATTENUE,
                 size_hint_y=None, height=dp(18), halign="left", valign="middle",
             )
             lbl_resume_titre.bind(size=lambda inst, val: setattr(inst, "text_size", val))
             contenu.add_widget(lbl_resume_titre)
             lbl_resume = Label(
-                text=c["resume"], font_size=dp(13), color=COULEUR_TEXTE_ATTENUE,
+                text=c["resume"], font_size=sp(13), color=COULEUR_TEXTE_ATTENUE,
                 size_hint_y=None, halign="left", valign="top",
             )
             lbl_resume.bind(width=lambda inst, w: setattr(lbl_resume, "text_size", (w, None)))
@@ -1959,8 +2463,8 @@ class ConcoursFinderApp(App):
         page.add_widget(scroll)
 
         # --- Bouton d'action principal, fixe en bas de page ---
-        bouton_ouvrir = Button(text=f"Voir le concours {ICONE_FLECHE}", font_size=dp(15), bold=True,
-                                color=(1, 1, 1, 1), size_hint=(1, None), height=dp(52))
+        bouton_ouvrir = Button(text=f"Voir le concours {ICONE_FLECHE}", font_size=sp(15), bold=True,
+                                color=COULEUR_TEXTE_SUR_ACCENT, size_hint=(1, None), height=dp(52))
         stylise_bouton(bouton_ouvrir, COULEUR_ACCENT, rayon=15)
 
         def _ouvrir(inst):
@@ -1985,12 +2489,16 @@ class ConcoursFinderApp(App):
 
     def _verifier_page_concours(self, c, statut_verif, ajouter_info):
         lien = c["lien"]
-        if lien in self._cache_pages:
-            texte_page = self._cache_pages[lien]
+        entree = self._cache_pages.get(lien)
+        cache_valide = entree and (time.time() - entree.get("horodatage", 0)) < DUREE_CACHE_PAGES_SECONDES
+
+        if cache_valide:
+            texte_page = entree["texte"]
         else:
             texte_page = recuperer_texte_page(lien)
             if texte_page is not None:
-                self._cache_pages[lien] = texte_page
+                self._cache_pages[lien] = {"texte": texte_page, "horodatage": time.time()}
+                sauvegarder_cache_pages(self._cache_pages)
 
         if texte_page is None:
             self._maj_verification(c["lien"], statut_verif, None, echec=True)
@@ -2025,4 +2533,24 @@ class ConcoursFinderApp(App):
 # =============================== LANCEMENT =================================
 
 if __name__ == "__main__":
-    ConcoursFinderApp().run()
+    import traceback
+
+    try:
+        ConcoursFinderApp().run()
+    except Exception:
+        # Ne couvre QUE les erreurs survenant après l'import réussi de tous les
+        # modules (Kivy, feedparser, certifi...) — un échec d'import plante
+        # Python avant même d'atteindre ce bloc, donc ce cas-là reste à
+        # diagnostiquer via adb logcat. Utile pour les bugs runtime (KeyError,
+        # AttributeError dans le code UI...) qui, eux, surviennent après le
+        # lancement et ne laissaient auparavant aucune trace récupérable sans
+        # câble/adb.
+        trace = traceback.format_exc()
+        print(trace)
+        try:
+            chemin = _chemin_fichier(FICHIER_JOURNAL_CRASH)
+            with open(chemin, "w", encoding="utf-8") as f:
+                f.write(f"{datetime.now().isoformat()}\n\n{trace}")
+        except Exception:
+            pass
+        raise
