@@ -98,6 +98,7 @@ FICHIER_CACHE_PAGES = "cache_pages.json"
 FICHIER_PARAMETRES = "parametres.json"
 FICHIER_JOURNAL_CRASH = "dernier_crash.log"
 FICHIER_DERNIERS_RESULTATS = "derniers_resultats_ok.json"
+FICHIER_SIGNALEMENTS = "signalements.json"
 
 # --- Paramètres réseau ---
 TIMEOUT_RESEAU = 10                    # secondes avant abandon d'un flux injoignable
@@ -116,6 +117,8 @@ TRIS_DISPONIBLES = [
     ("score", "Score"),
     ("date", "Échéance"),
     ("valeur", "Valeur"),
+    ("facilite", "Facilité"),
+    ("popularite", "Popularité"),
     ("alpha", "A-Z"),
 ]
 
@@ -125,6 +128,8 @@ PARAMETRES_PAR_DEFAUT = {
     "frequence_refresh_heures": 24,
     "flux_desactives": [],
     "tri": "score",
+    "ville": "",
+    "comptes_reseaux_sociaux": [],  # [{"nom": ..., "reseau": ..., "url": ...}, ...]
 }
 
 
@@ -132,6 +137,14 @@ PARAMETRES_PAR_DEFAUT = {
 
 def _url_google_news(requete: str) -> str:
     return f"https://news.google.com/rss/search?q={quote_plus(requete)}&hl=fr&gl=FR&ceid=FR:fr"
+
+
+def _url_bing_news(requete: str) -> str:
+    """Bing Actualités a, comme Google, un flux RSS de recherche public.
+    Couverture différente de Google Actus (indexation différente) : sert de
+    deuxième source pour les mêmes mots-clés génériques, en plus — pas à la
+    place — des requêtes Google Actus déjà en place."""
+    return f"https://www.bing.com/news/search?q={quote_plus(requete)}&format=RSS&setlang=fr-FR&cc=FR"
 
 
 def _url_groupee(marques) -> str:
@@ -171,13 +184,19 @@ FLUX_RSS_AVEC_LIBELLES = [
     # couvrent déjà les vrais concours organisés par ces mêmes marques,
     # sans le bruit des articles d'actualité générale.
 
-    # --- Mots-clés génériques ---
+    # --- Mots-clés génériques (Google Actus) ---
     ("Actus : \"jeu concours\"", _url_google_news('"jeu concours"')),
     ("Actus : \"instant gagnant\"", _url_google_news('"instant gagnant"')),
     ("Actus : \"tirage au sort\"", _url_google_news('"tirage au sort"')),
     ("Actus : \"gagnez\"", _url_google_news("gagnez")),
     ("Actus : \"grand jeu\"", _url_google_news('"grand jeu concours"')),
     ("Actus : \"jouez et gagnez\"", _url_google_news('"jouez et gagnez"')),
+
+    # --- Mêmes mots-clés génériques, via Bing Actus cette fois : indexation
+    # différente de Google, remonte parfois des articles absents de l'autre. ---
+    ("Actus Bing : \"jeu concours\"", _url_bing_news('"jeu concours"')),
+    ("Actus Bing : \"tirage au sort\"", _url_bing_news('"tirage au sort"')),
+    ("Actus Bing : \"instant gagnant\"", _url_bing_news('"instant gagnant"')),
 
     # --- Marques, regroupées par secteur (voir _url_groupee ci-dessus) ---
     ("Grande distribution", _url_groupee(["Carrefour", "E.Leclerc", "Lidl", "Auchan", "Intermarché",
@@ -187,7 +206,7 @@ FLUX_RSS_AVEC_LIBELLES = [
                                                "NRJ", "RTL", "Europe 1", "RMC"])),
     ("Jeux vidéo", _url_groupee(["PlayStation", "Xbox", "Nintendo", "Steam", "Epic Games",
                                   "Ubisoft", "EA", "Riot Games", "Blizzard", "Rockstar Games"])),
-    ("Jouets", _url_groupee(["LEGO", "Mattel", "Hasbro"])),
+    ("Jouets", _url_groupee(["LEGO", "Mattel", "Hasbro", "Smoby", "Janod", "VTech"])),
     ("Jeux de société / loisirs créatifs", _url_groupee(["Asmodée", "Djeco", "Playmobil", "Ravensburger"])),
     ("Confiserie / boissons", _url_groupee(["Kinder", "Haribo", "Nutella", "Milka", "Coca-Cola",
                                              "Pepsi", "Red Bull", "Oreo", "LU"])),
@@ -195,11 +214,13 @@ FLUX_RSS_AVEC_LIBELLES = [
     ("Électronique", _url_groupee(["Samsung", "LG", "Sony", "Asus", "Acer", "HP", "Dell", "Lenovo"])),
     ("Télécom / streaming", _url_groupee(["Orange", "SFR", "Free", "Bouygues Telecom", "Canal+",
                                            "Netflix", "Prime Video", "Disney+"])),
+    ("Opérateurs low-cost (MVNO)", _url_groupee(["Sosh", "RED by SFR", "Prixtel", "Auchan Telecom"])),
     ("Sport / beauté", _url_groupee(["Decathlon", "Intersport", "Go Sport", "Sephora",
-                                      "Yves Rocher", "Nocibé", "L'Oréal"])),
+                                      "Yves Rocher", "Nocibé", "L'Oréal", "Kiko", "Marionnaud"])),
     ("Restauration rapide", _url_groupee(["KFC", "McDonald's", "Burger King", "Domino's Pizza"])),
     ("Bricolage / déco", _url_groupee(["IKEA", "Leroy Merlin", "Castorama", "Brico Dépôt"])),
     ("Voyage", _url_groupee(["Air France", "SNCF", "Accor", "Pierre & Vacances"])),
+    ("Banque / finance", _url_groupee(["Boursorama", "Fortuneo", "Hello bank", "Cetelem"])),
 
     # --- Réseaux sociaux / créateurs de contenu ---
     # Instagram et TikTok n'ont pas de flux RSS publics (ce sont des posts,
@@ -318,6 +339,30 @@ MOTS_EXCLUS = [
     "chiffres de vente", "critique du film", "critique cinéma", "interview",
     "keynote", "conférence de presse", "résultats financiers", "cours de bourse",
     "rappel produit", "rappel de produit",
+
+    # Articles de BILAN d'un concours déjà terminé (annonce des gagnants) :
+    # sans date limite explicite détectée par extraire_date_limite, ces
+    # articles passaient le filtre d'ancienneté (45 jours) et polluaient les
+    # résultats avec des concours sur lesquels il n'y a plus rien à faire.
+    "a été remporté par", "ont été remportés par", "les gagnants sont",
+    "le gagnant est", "la gagnante est", "résultats du concours",
+    "résultats du tirage au sort", "félicitations aux gagnants",
+    "merci à tous les participants", "le concours est terminé",
+
+    # "gagner"/"concours" au sens figuré, sans rapport avec un lot à gagner.
+    "gagner du temps", "gagner en confiance", "gagner en visibilité",
+    "gagner en notoriété", "gagner en efficacité", "gagner des parts de marché",
+    "concours de circonstances",
+]
+
+# Signal de renfort (bonus de score, pas une exclusion) : un vrai concours
+# actif contient très souvent un appel à l'action direct. Aide à distinguer
+# "ce concours existe" (simple mention dans un article) de "tu peux y
+# participer maintenant". Volontairement un bonus et non un filtre strict :
+# beaucoup de vrais concours ne reprennent pas exactement ces formulations.
+VERBES_ACTION = [
+    "participez", "participer", "inscrivez-vous", "inscrivez vous",
+    "tentez votre chance", "tentez", "jouez", "répondez", "candidatez",
 ]
 
 # Détection heuristique (mots-clés) de ce qu'il faut probablement fournir pour
@@ -445,6 +490,10 @@ def score_concours(titre: str, resume: str, texte: str = None) -> int:
     for mot in MOTS_SANS_ACHAT:
         if mot in texte:
             score += 3
+    if any(verbe in texte for verbe in VERBES_ACTION):
+        # Appel à l'action direct détecté : renforce la confiance qu'il
+        # s'agit d'un concours réellement participable, pas juste mentionné.
+        score += 2
 
     if score == 0:
         # On sait déjà (appelant) qu'un signal de concours est présent :
@@ -643,39 +692,72 @@ def normaliser_titre(titre: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+def url_canonique(url: str) -> str:
+    """Normalise une URL pour comparaison : deux flux différents relaient
+    parfois le MÊME concours (même page de destination) avec des titres
+    reformulés très différemment — la similarité de titre seule ne le
+    détecte pas, mais l'URL, une fois débarrassée des paramètres de tracking
+    (utm_*, etc.), du "www.", du protocole et du slash final, matche
+    exactement."""
+    if not url:
+        return ""
+    sans_requete = url.split("?", 1)[0].split("#", 1)[0]
+    sans_protocole = re.sub(r"^https?://", "", sans_requete, flags=re.IGNORECASE)
+    sans_www = re.sub(r"^www\.", "", sans_protocole, flags=re.IGNORECASE)
+    return sans_www.lower().rstrip("/")
+
+
 def deduplique_concours(resultats: list) -> list:
     """Fusionne les concours quasi-identiques relayés par plusieurs flux :
     ne garde que la première rencontrée (la liste doit déjà être triée par score
     décroissant), qui est donc la mieux notée. Le concours gardé reçoit un
     petit bonus de score par doublon fusionné (voir plus bas) : un concours
     relayé par plusieurs sources est probablement plus fiable/important
-    qu'un concours isolé.
+    qu'un concours isolé. Le nombre de flux (`nb_flux`) est conservé sur
+    chaque concours gardé, pour le tri "Popularité" (voir ConcoursFinderApp).
 
-    Comparaison indexée par mots-clés au lieu d'un O(n²) sur toute la liste :
-    un concours n'est comparé qu'aux concours déjà gardés qui partagent au
-    moins un mot significatif (4 lettres ou plus) avec lui, via un index
-    inversé mot -> indices des concours gardés. Sur une liste de plusieurs
-    milliers d'entrées, ça évite l'essentiel des comparaisons difflib
-    inutiles (concours qui n'ont aucun mot en commun, donc aucune chance
-    d'être des doublons)."""
+    Deux façons de détecter un doublon, dans cet ordre :
+    1. URL canonique identique (rapide, exact) — deux flux qui relaient la
+       MÊME page de destination avec des titres totalement différents.
+    2. Similarité de titre (comparaison indexée par mots-clés au lieu d'un
+       O(n²) sur toute la liste : un concours n'est comparé qu'aux concours
+       déjà gardés qui partagent au moins un mot significatif) — ET,
+       lorsque le titre seul est ambigu (0.6-0.82), une similarité de
+       résumé en renfort, pour attraper les reformulations plus poussées
+       qu'un simple changement de titre."""
     gardes = []
     titres_normalises = []
+    resumes_normalises = []
     nb_flux_par_garde = []
     index_mots = {}  # mot significatif -> ensemble des indices dans `gardes`
+    index_urls = {}  # url canonique -> indice dans `gardes`
 
     for c in resultats:
+        url_can = url_canonique(c.get("lien", ""))
+        if url_can and url_can in index_urls:
+            nb_flux_par_garde[index_urls[url_can]] += 1
+            continue
+
         nt = normaliser_titre(c["titre"])
+        nr = (c.get("resume") or "").lower().strip()
         mots_significatifs = {m for m in nt.split() if len(m) >= 4}
 
         candidats = set()
         for mot in mots_significatifs:
             candidats.update(index_mots.get(mot, ()))
 
-        idx_correspondant = next(
-            (idx for idx in candidats
-             if difflib.SequenceMatcher(None, nt, titres_normalises[idx]).ratio() > 0.82),
-            None,
-        )
+        idx_correspondant = None
+        for idx in candidats:
+            ratio_titre = difflib.SequenceMatcher(None, nt, titres_normalises[idx]).ratio()
+            if ratio_titre > 0.82:
+                idx_correspondant = idx
+                break
+            if ratio_titre > 0.6 and nr and resumes_normalises[idx]:
+                ratio_resume = difflib.SequenceMatcher(None, nr, resumes_normalises[idx]).ratio()
+                if ratio_resume > 0.75:
+                    idx_correspondant = idx
+                    break
+
         if idx_correspondant is not None:
             nb_flux_par_garde[idx_correspondant] += 1
             continue
@@ -683,13 +765,17 @@ def deduplique_concours(resultats: list) -> list:
         nouvel_idx = len(gardes)
         gardes.append(c)
         titres_normalises.append(nt)
+        resumes_normalises.append(nr)
         nb_flux_par_garde.append(1)
         for mot in mots_significatifs:
             index_mots.setdefault(mot, set()).add(nouvel_idx)
+        if url_can:
+            index_urls[url_can] = nouvel_idx
 
     # Bonus plafonné (+2 par doublon, max +6) pour ne jamais dominer le score
     # de base — juste un petit coup de pouce en cas d'égalité/quasi-égalité.
     for c, nb_flux in zip(gardes, nb_flux_par_garde):
+        c["nb_flux"] = nb_flux
         if nb_flux > 1:
             c["score"] += min(nb_flux - 1, 3) * 2
 
@@ -869,6 +955,23 @@ def charger_derniers_resultats():
     return resultats
 
 
+# --- Signalements "faux concours" — pas exploités automatiquement pour
+# l'instant, juste journalisés localement pour pouvoir affiner MOTS_EXCLUS /
+# SIGNAUX_CONCOURS plus tard à partir de cas réels rencontrés. ---
+
+def charger_signalements():
+    return _charger_json(FICHIER_SIGNALEMENTS, [])
+
+
+def ajouter_signalement(titre, lien, source):
+    signalements = charger_signalements()
+    signalements.append({
+        "titre": titre, "lien": lien, "source": source,
+        "date": datetime.now().isoformat(),
+    })
+    _sauvegarder_json(FICHIER_SIGNALEMENTS, signalements, "les signalements")
+
+
 # ================================ RESEAU ==================================
 
 import socket
@@ -957,7 +1060,7 @@ def _extraire_entrees_brutes(flux):
     return entrees
 
 
-def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desactives=None):
+def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desactives=None, ville=None):
     """Télécharge/traite tous les flux RSS et renvoie (resultats, diagnostic).
 
     Important : cette fonction NE filtre PLUS par préférence utilisateur
@@ -967,8 +1070,14 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desact
     sans avoir besoin de relancer une recherche réseau complète.
 
     `flux_desactives` : ensemble d'URLs de FLUX_RSS à ignorer complètement
-    (réglage "Sources" des paramètres — voir _ouvrir_parametres)."""
+    (réglage "Sources" des paramètres — voir _ouvrir_parametres).
+    `ville` : si renseignée (réglage "Ville / région"), ajoute une requête
+    Google Actualités "concours <ville>" pour remonter des concours locaux
+    (offices de tourisme, radios locales...) que les flux nationaux ne
+    couvrent pas."""
     flux_actifs = [url for url in FLUX_RSS if url not in (flux_desactives or ())]
+    if ville and ville.strip():
+        flux_actifs.append(_url_google_news(f'concours "{ville.strip()}"'))
     resultats = []
     vus = set()
     supprimes = charger_supprimes()
@@ -1033,6 +1142,10 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desact
             # si beaucoup d'actions sont demandées : ça reste neutre.
             nb_actions = len(categories_requises)
             score += {0: 4, 1: 2}.get(nb_actions, 0)
+            # Score de facilité (1-5) indépendant du score de valeur/lot ci-dessus :
+            # utile pour trier par "le plus simple" sans se soucier de la valeur
+            # du lot, ce que le score combiné ne permet pas de faire seul.
+            facilite = max(5 - nb_actions, 1)
 
             if date_limite_obj:
                 jours_restants = (date_limite_obj - date.today()).days
@@ -1058,6 +1171,7 @@ def recuperer_concours(on_progress=None, forcer_actualisation=False, flux_desact
                 "valeur_estimee_nombre": valeur_estimee_nombre,
                 "categories": categories_requises,
                 "score": score,
+                "facilite": facilite,
                 "source": url,
                 "type_lot": type_lot_visuel(texte_analyse),
             })
@@ -1729,6 +1843,18 @@ class ConcoursFinderApp(App):
         grille.add_widget(ligne_frequence)
         _choisir_frequence(etat_frequence["valeur"])
 
+        # --- Ville / région (concours locaux) ---
+        grille.add_widget(_titre_section("VILLE / RÉGION (CONCOURS LOCAUX)"))
+        ligne_ville = _ligne_carte()
+        champ_ville = TextInput(
+            text=self.parametres.get("ville", ""), hint_text="ex: Lyon, Bretagne...",
+            multiline=False, font_size=sp(13), background_color=(0, 0, 0, 0),
+            foreground_color=COULEUR_TEXTE, hint_text_color=COULEUR_TEXTE_ATTENUE,
+            cursor_color=COULEUR_ACCENT, padding=(dp(4), dp(10)),
+        )
+        ligne_ville.add_widget(champ_ville)
+        grille.add_widget(ligne_ville)
+
         # --- Sources RSS actives ---
         grille.add_widget(_titre_section("SOURCES RSS ACTIVES"))
         flux_desactives_actuels = set(self.parametres.get("flux_desactives", []))
@@ -1766,6 +1892,7 @@ class ConcoursFinderApp(App):
             theme_avant = self.parametres.get("theme_clair", False)
             self.parametres["theme_clair"] = case_theme.active
             self.parametres["frequence_refresh_heures"] = etat_frequence["valeur"]
+            self.parametres["ville"] = champ_ville.text.strip()
             self.parametres["flux_desactives"] = [url for url, case in cases_flux.items() if not case.active]
             sauvegarder_parametres(self.parametres)
             popup.dismiss()
@@ -2212,6 +2339,7 @@ class ConcoursFinderApp(App):
                 on_progress=lambda i, total, url: self._maj_progression(i, total, url),
                 forcer_actualisation=forcer,
                 flux_desactives=self.parametres.get("flux_desactives", []),
+                ville=self.parametres.get("ville"),
             )
         except Exception as e:
             self._afficher_erreur(str(e))
@@ -2332,6 +2460,10 @@ class ConcoursFinderApp(App):
             page = sorted(page, key=lambda c: c.get("date_limite_obj") or date.max)
         elif tri == "valeur":
             page = sorted(page, key=lambda c: c.get("valeur_estimee_nombre") or 0, reverse=True)
+        elif tri == "facilite":
+            page = sorted(page, key=lambda c: c.get("facilite", 1), reverse=True)
+        elif tri == "popularite":
+            page = sorted(page, key=lambda c: c.get("nb_flux", 1), reverse=True)
         elif tri == "alpha":
             page = sorted(page, key=lambda c: c["titre"].lower())
 
@@ -2358,6 +2490,21 @@ class ConcoursFinderApp(App):
         if self.page_actuelle == 4:
             for nom_reseau, url_template in RESEAUX_SOCIAUX_RECHERCHE:
                 self._ajouter_ligne_reseau_social(nom_reseau, url_template)
+
+            # --- Comptes suivis, enregistrés par l'utilisateur lui-même (pas
+            # de liste de comptes Instagram/TikTok pré-remplie par l'app :
+            # on ne peut pas garantir l'exactitude d'identifiants devinés,
+            # et un lien mort/faux serait pire que pas de lien du tout). ---
+            lbl_comptes = Label(
+                text="Mes comptes suivis", font_size=sp(13), bold=True, color=COULEUR_TEXTE,
+                size_hint_y=None, height=dp(24), halign="left", valign="middle",
+            )
+            lbl_comptes.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+            self.liste.add_widget(lbl_comptes)
+
+            for compte in self.parametres.get("comptes_reseaux_sociaux", []):
+                self._ajouter_ligne_compte_suivi(compte)
+            self._ajouter_bouton_ajouter_compte()
 
         mot_cle = self.champ_recherche.text.strip() if hasattr(self, "champ_recherche") else ""
         page_complete = self._filtrer_page(self.resultats_actuels, self.page_actuelle)
@@ -2447,6 +2594,110 @@ class ConcoursFinderApp(App):
         ligne.add_widget(item)
 
         self.liste.add_widget(ligne)
+
+    def _ajouter_ligne_compte_suivi(self, compte):
+        """Une carte par compte réseau social enregistré manuellement par
+        l'utilisateur (voir _ouvrir_ajout_compte) — pas de liste pré-remplie
+        par l'app, voir la note dans _afficher_page."""
+        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(54), spacing=dp(8),
+                           padding=(dp(0), dp(0), dp(12), dp(0)))
+        with ligne.canvas.before:
+            Color(*COULEUR_CARTE_A)
+            rect = RoundedRectangle(radius=[dp(16)], pos=ligne.pos, size=ligne.size)
+            Color(*COULEUR_CARTE_BORDURE)
+            bordure = Line(rounded_rectangle=(ligne.x, ligne.y, ligne.width, ligne.height, dp(16)), width=dp(1))
+
+        def _sync_fond(inst, *_a):
+            rect.pos = inst.pos
+            rect.size = inst.size
+            bordure.rounded_rectangle = (inst.x, inst.y, inst.width, inst.height, dp(16))
+        ligne.bind(pos=_sync_fond, size=_sync_fond)
+
+        item = Button(
+            text=f"{compte.get('nom', 'Compte')} {ICONE_FLECHE}",
+            halign="left", valign="middle", font_size=sp(15), bold=True,
+            background_color=(0, 0, 0, 0), background_normal="", background_down="",
+            color=COULEUR_TEXTE, padding=(dp(14), 0),
+        )
+        item.bind(size=lambda inst, val: setattr(item, "text_size", val))
+        item.bind(on_press=lambda inst, url=compte.get("url", ""): ouvrir_lien(url))
+        ligne.add_widget(item)
+
+        bouton_retirer = Button(text=ICONE_FERMER, font_size=sp(12), bold=True, color=COULEUR_TEXTE,
+                                 size_hint=(None, None), size=(dp(36), dp(36)))
+        stylise_bouton(bouton_retirer, COULEUR_ONGLET_INACTIF, rayon=14)
+
+        def _retirer(inst, compte=compte):
+            self.parametres["comptes_reseaux_sociaux"] = [
+                c for c in self.parametres.get("comptes_reseaux_sociaux", []) if c is not compte
+            ]
+            sauvegarder_parametres(self.parametres)
+            self._afficher_page()
+
+        bouton_retirer.bind(on_press=_retirer)
+        ligne.add_widget(bouton_retirer)
+
+        self.liste.add_widget(ligne)
+
+    def _ajouter_bouton_ajouter_compte(self):
+        bouton = Button(text=f"{ICONE_FLECHE} Ajouter un compte", font_size=sp(13), bold=True,
+                         color=COULEUR_TEXTE, size_hint_y=None, height=dp(44))
+        stylise_bouton(bouton, COULEUR_ONGLET_INACTIF, rayon=14)
+        bouton.bind(on_press=lambda inst: self._ouvrir_ajout_compte())
+        self.liste.add_widget(bouton)
+
+    def _ouvrir_ajout_compte(self, instance=None):
+        contenu = BoxLayout(orientation="vertical", spacing=dp(12), padding=dp(16))
+        lbl_info = Label(
+            text="Colle le lien de son profil (Instagram, TikTok, Facebook...) — "
+                 "aucun lien n'est deviné automatiquement par l'app.",
+            font_size=sp(12), color=COULEUR_TEXTE_ATTENUE, size_hint_y=None, height=dp(50),
+            halign="left", valign="top",
+        )
+        lbl_info.bind(width=lambda inst, w: setattr(lbl_info, "text_size", (w, None)))
+        contenu.add_widget(lbl_info)
+
+        champ_nom = TextInput(
+            hint_text="Nom (ex: Carrefour)", multiline=False, size_hint_y=None, height=dp(44),
+            font_size=sp(13), background_color=COULEUR_CARTE_A, foreground_color=COULEUR_TEXTE,
+            hint_text_color=COULEUR_TEXTE_ATTENUE, cursor_color=COULEUR_ACCENT, padding=(dp(12), dp(10)),
+        )
+        contenu.add_widget(champ_nom)
+
+        champ_url = TextInput(
+            hint_text="Lien du profil (https://...)", multiline=False, size_hint_y=None, height=dp(44),
+            font_size=sp(13), background_color=COULEUR_CARTE_A, foreground_color=COULEUR_TEXTE,
+            hint_text_color=COULEUR_TEXTE_ATTENUE, cursor_color=COULEUR_ACCENT, padding=(dp(12), dp(10)),
+        )
+        contenu.add_widget(champ_url)
+
+        bouton_ajouter = Button(text="Ajouter", bold=True, color=COULEUR_TEXTE_SUR_ACCENT,
+                                 size_hint_y=None, height=dp(48))
+        stylise_bouton(bouton_ajouter, COULEUR_ACCENT, rayon=14)
+        contenu.add_widget(bouton_ajouter)
+
+        popup = Popup(
+            title="Ajouter un compte", content=contenu, size_hint=(0.9, None), height=dp(300),
+            separator_color=COULEUR_ACCENT, title_color=COULEUR_TEXTE,
+            background_color=COULEUR_FOND, title_size=dp(16),
+        )
+
+        def _ajouter(inst):
+            nom = champ_nom.text.strip()
+            url = champ_url.text.strip()
+            if not nom or not url:
+                return
+            if not url.startswith(("http://", "https://")):
+                url = "https://" + url
+            comptes = self.parametres.get("comptes_reseaux_sociaux", [])
+            comptes.append({"nom": nom, "url": url})
+            self.parametres["comptes_reseaux_sociaux"] = comptes
+            sauvegarder_parametres(self.parametres)
+            popup.dismiss()
+            self._afficher_page()
+
+        bouton_ajouter.bind(on_press=_ajouter)
+        popup.open()
 
     def _ajouter_ligne_concours(self, i, c):
         libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
@@ -2740,6 +2991,18 @@ class ConcoursFinderApp(App):
             lbl_valeur.bind(size=lambda inst, val: setattr(inst, "text_size", val))
             _ajouter_section("VALEUR ESTIMÉE", lbl_valeur)
 
+        # --- Facilité de participation (1-5, indépendante de la valeur du lot) ---
+        ligne_facilite = BoxLayout(size_hint_y=None, height=dp(22), spacing=dp(3))
+        for i in range(5):
+            etoile_facilite = Label(
+                text=ICONE_ETOILE, font_size=sp(16), bold=True,
+                color=COULEUR_ACCENT if i < c.get("facilite", 1) else COULEUR_ONGLET_INACTIF,
+                size_hint=(None, 1), width=dp(16),
+            )
+            ligne_facilite.add_widget(etoile_facilite)
+        ligne_facilite.add_widget(BoxLayout())
+        _ajouter_section("FACILITÉ DE PARTICIPATION", ligne_facilite)
+
         # --- Actions requises pour participer ---
         bloc_actions = BoxLayout(orientation="vertical", spacing=dp(3), size_hint_y=None)
         bloc_actions.bind(minimum_height=bloc_actions.setter("height"))
@@ -2828,6 +3091,16 @@ class ConcoursFinderApp(App):
         bouton_ouvrir.bind(on_press=_ouvrir)
         page.add_widget(bouton_ouvrir)
 
+        # Discret et à part du bouton principal : action rare, ne doit pas
+        # rivaliser visuellement avec le CTA "Voir le concours".
+        bouton_signaler = Button(
+            text="Signaler comme faux concours", font_size=sp(11), color=COULEUR_TEXTE_ATTENUE,
+            background_color=(0, 0, 0, 0), background_normal="", background_down="",
+            size_hint_y=None, height=dp(28),
+        )
+        bouton_signaler.bind(on_press=lambda inst, c=c: self._signaler_faux_concours(c))
+        page.add_widget(bouton_signaler)
+
         self.ecran_details.add_widget(page)
         self.sm.transition.direction = "left"
         self.sm.current = "details"
@@ -2883,6 +3156,20 @@ class ConcoursFinderApp(App):
         self._resultats_bruts = [c for c in self._resultats_bruts if c["lien"] != lien]
         self.resultats_actuels = [c for c in self.resultats_actuels if c["lien"] != lien]
         self.liste.remove_widget(ligne)
+
+    def _signaler_faux_concours(self, c):
+        """Distinct de la suppression normale : journalise le signalement
+        (voir ajouter_signalement) en plus de cacher le concours, pour
+        pouvoir affiner les règles de filtrage plus tard à partir de cas
+        réels plutôt que de suppositions."""
+        ajouter_signalement(c["titre"], c["lien"], c.get("source", ""))
+        self.supprimes.add(c["lien"])
+        sauvegarder_supprimes(self.supprimes)
+        self._resultats_bruts = [x for x in self._resultats_bruts if x["lien"] != c["lien"]]
+        self.resultats_actuels = [x for x in self.resultats_actuels if x["lien"] != c["lien"]]
+        self._retour_a_la_liste()
+        self._afficher_page()
+        self.statut.text = "Signalé — merci, ça aide à améliorer le filtrage."
 
 
 # =============================== LANCEMENT =================================
