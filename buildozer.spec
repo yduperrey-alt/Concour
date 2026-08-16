@@ -4,7 +4,7 @@ package.name = concoursfinder
 package.domain = org.concoursfinder
 
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,ttf
 source.exclude_dirs = tests
 version = 1.0
 

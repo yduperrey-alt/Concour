@@ -243,28 +243,51 @@ LOTS_BASIQUES = ["cadeau", "cadeaux", "lot à gagner", "lots à gagner", "gain",
                   "bon plan", "échantillon", "échantillons", "goodies", "gadget"]
 MOTS_SANS_ACHAT = ["sans obligation d'achat", "sans achat", "gratuit", "gratuitement"]
 
-# Étiquette courte (vignette de carte) selon le type de lot détecté — texte
-# ASCII uniquement, pas de vraie photo (les flux n'en fournissent pas de
-# façon fiable, et un glyphe d'icône Unicode ne s'affiche pas correctement
-# avec la police embarquée par Kivy sur Android, voir ICONE_* plus haut).
+# --- Icônes de type de lot (vignette de carte) ---
+# Un glyphe d'icône Unicode "normal" (ex: U+1F4F1 pour un téléphone) ne
+# s'affiche PAS de façon fiable avec la police embarquée par Kivy sur
+# Android (tofu/carré vide — voir la note sur ICONE_* plus haut). Solution :
+# on fournit nous-mêmes la police (icones.ttf, sous-ensemble de Font Awesome
+# Free 6.5.1 — licence SIL OFL 1.1 — réduit à 15 glyphes, ~4,5 Ko) et on
+# l'utilise explicitement via font_name= sur les Label concernés. Le rendu
+# est alors garanti quel que soit l'appareil, contrairement à un glyphe pris
+# dans la police système. Codepoints vérifiés contre metadata/icons.json du
+# dépôt officiel Font Awesome (chaque glyphe confirmé présent dans le fichier
+# .ttf fourni via fontTools avant l'intégration).
+POLICE_ICONES = "icones.ttf"
+ICONE_TEL = ""          # mobile-screen-button
+ICONE_JEU = ""          # gamepad
+ICONE_PC = ""           # laptop
+ICONE_TAB = ""          # tablet
+ICONE_AUTO = ""         # car
+ICONE_VOYAGE = ""       # plane
+ICONE_TV = ""           # tv
+ICONE_AUDIO = ""        # headphones
+ICONE_BON = ""          # gift
+ICONE_BEAUTE = ""       # spray-can
+ICONE_VELO = ""         # bicycle
+ICONE_LIVRE = ""        # book
+ICONE_COLLECTION = ""   # compact-disc
+ICONE_SORTIE = ""       # utensils
+ICONE_LOT_DEFAUT = ""   # star — filet de sécurité si rien ne matche
+
 # Liste vérifiée dans l'ordre : la première catégorie qui matche gagne.
 TYPES_LOT_VISUELS = [
-    (["iphone", "smartphone", "samsung galaxy", "xiaomi", "téléphone"], "TEL"),
-    (["playstation", "ps5", "ps4", "xbox", "nintendo switch", "console"], "JEU"),
-    (["macbook", "pc portable", "ordinateur portable", "laptop"], "PC"),
-    (["ipad", "tablette"], "TAB"),
-    (["voiture", "moto", "scooter"], "AUTO"),
-    (["voyage", "séjour", "croisière", "week-end"], "VOY"),
-    (["téléviseur", "tv oled", "home cinéma", "barre de son"], "TV"),
-    (["montre connectée", "apple watch", "airpods", "casque vr", "casque"], "AUDIO"),
-    (["drone"], "DRONE"),
-    (["bon d'achat", "carte cadeau", "chèque cadeau", "chèque"], "BON"),
-    (["parfum", "cosmétique"], "BEAUTE"),
-    (["vélo", "trottinette"], "VELO"),
-    (["livre"], "LIVRE"),
-    (["jeu vidéo", "jeu de société"], "JEU"),
-    (["figurine", "vinyle"], "COL"),
-    (["restaurant", "spa", "place de cinéma"], "SORTIE"),
+    (["iphone", "smartphone", "samsung galaxy", "xiaomi", "téléphone"], ICONE_TEL),
+    (["playstation", "ps5", "ps4", "xbox", "nintendo switch", "console"], ICONE_JEU),
+    (["macbook", "pc portable", "ordinateur portable", "laptop"], ICONE_PC),
+    (["ipad", "tablette"], ICONE_TAB),
+    (["voiture", "moto", "scooter"], ICONE_AUTO),
+    (["voyage", "séjour", "croisière", "week-end"], ICONE_VOYAGE),
+    (["téléviseur", "tv oled", "home cinéma", "barre de son"], ICONE_TV),
+    (["montre connectée", "apple watch", "airpods", "casque vr", "casque"], ICONE_AUDIO),
+    (["bon d'achat", "carte cadeau", "chèque cadeau", "chèque"], ICONE_BON),
+    (["parfum", "cosmétique"], ICONE_BEAUTE),
+    (["vélo", "trottinette"], ICONE_VELO),
+    (["livre"], ICONE_LIVRE),
+    (["jeu vidéo", "jeu de société"], ICONE_JEU),
+    (["figurine", "vinyle"], ICONE_COLLECTION),
+    (["restaurant", "spa", "place de cinéma"], ICONE_SORTIE),
 ]
 
 # Utilisés uniquement en filet de sécurité : si aucun mot-clé de lot ne matche,
@@ -432,13 +455,13 @@ def score_concours(titre: str, resume: str, texte: str = None) -> int:
 
 
 def type_lot_visuel(texte: str) -> str:
-    """Renvoie une courte étiquette (voir TYPES_LOT_VISUELS) représentant le
-    type de lot détecté, pour la vignette des cartes concours. ICONE_ETOILE
-    en filet de sécurité si aucune catégorie connue ne correspond."""
-    for mots, etiquette in TYPES_LOT_VISUELS:
+    """Renvoie le glyphe d'icône (voir TYPES_LOT_VISUELS/POLICE_ICONES)
+    représentant le type de lot détecté, pour la vignette des cartes
+    concours. ICONE_LOT_DEFAUT en filet de sécurité si rien ne correspond."""
+    for mots, glyphe in TYPES_LOT_VISUELS:
         if any(m in texte for m in mots):
-            return etiquette
-    return ICONE_ETOILE
+            return glyphe
+    return ICONE_LOT_DEFAUT
 
 
 def nettoyer_html(texte: str) -> str:
@@ -1252,7 +1275,7 @@ class ConcoursFinderApp(App):
         self._cache_pages = charger_cache_pages()
         self._lien_details_courant = None
         self._debounce_recherche = None
-        root = BoxLayout(orientation="vertical", padding=(dp(14), dp(42), dp(14), dp(12)), spacing=dp(10))
+        root = BoxLayout(orientation="vertical", padding=(dp(14), dp(20), dp(14), dp(12)), spacing=dp(10))
 
         # --- En-tête façon "streaming" : titre + accroche + accès rapides (compact) ---
         entete = BoxLayout(orientation="vertical", size_hint=(1, None), height=dp(84), spacing=dp(4))
@@ -1290,11 +1313,12 @@ class ConcoursFinderApp(App):
         entete.add_widget(accroche)
 
         ligne_actions = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(32), spacing=dp(6))
+        # Favoris et Paramètres sont retirés d'ici : déjà accessibles depuis
+        # la barre de navigation en bas (voir _construire_barre_navigation),
+        # pas besoin de les dupliquer.
         for texte_btn, icone_btn, callback in (
-            ("Favoris", "", self._ouvrir_favoris),
             ("Historique", "", self._ouvrir_historique),
             ("Options", "", self._ouvrir_preferences),
-            ("Paramètres", "", self._ouvrir_parametres),
         ):
             btn = Button(text=texte_btn, font_size=sp(11), bold=True, color=COULEUR_TEXTE,
                          size_hint=(1, 1))
@@ -1348,11 +1372,18 @@ class ConcoursFinderApp(App):
         ligne_recherche.add_widget(self.bouton_tri)
         root.add_widget(ligne_recherche)
 
-        # --- Onglets de filtrage par score, façon "pilules" (compacts) ---
-        onglets = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(36), spacing=dp(6))
+        # --- Onglets de filtrage par score, façon "pilules" ---
+        # RS n'a plus sa pilule ici : déjà une destination à part entière de
+        # la barre de navigation en bas. Ça laisse aussi plus de largeur aux
+        # 3 pilules restantes (3 au lieu de 4 dans la même rangée).
+        # Hauteur dp(48) — zone tactile minimale recommandée Android/WCAG,
+        # au lieu des dp(36) d'origine, trop courts pour un doigt.
+        onglets = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(48), spacing=dp(8))
         self.boutons_pages = {}
         for num_page, libelle in LIBELLES_PAGES.items():
-            btn = Button(text=libelle, font_size=sp(10), bold=True, color=COULEUR_TEXTE,
+            if num_page == 4:
+                continue
+            btn = Button(text=libelle, font_size=sp(11), bold=True, color=COULEUR_TEXTE,
                          halign="center", valign="middle", shorten=True, shorten_from="right")
             # Sans cette contrainte, un texte allongé (badge de compte ajouté
             # par _maj_badges_onglets, ex: "Bons plans (12)") déborde
@@ -1360,7 +1391,7 @@ class ConcoursFinderApp(App):
             # semble plus large que la zone cliquable, qui elle ne bouge pas
             # (elle suit toujours pos/size du widget, pas la taille du texte).
             btn.bind(size=lambda inst, val: setattr(inst, "text_size", val))
-            stylise_bouton(btn, COULEUR_ONGLET_INACTIF, rayon=16)
+            stylise_bouton(btn, COULEUR_ONGLET_INACTIF, rayon=18)
             btn.bind(on_press=lambda inst, p=num_page: self._changer_page(p))
             onglets.add_widget(btn)
             self.boutons_pages[num_page] = btn
@@ -2016,7 +2047,7 @@ class ConcoursFinderApp(App):
         if not hasattr(self, "ecran_accueil"):
             return
         self.ecran_accueil.clear_widgets()
-        contenu = BoxLayout(orientation="vertical", padding=(dp(16), dp(42), dp(16), dp(12)), spacing=dp(14))
+        contenu = BoxLayout(orientation="vertical", padding=(dp(16), dp(20), dp(16), dp(12)), spacing=dp(14))
 
         heure = datetime.now().hour
         salutation = "Bonjour" if 5 <= heure < 18 else "Bonsoir"
@@ -2430,9 +2461,8 @@ class ConcoursFinderApp(App):
             vignette_rect = RoundedRectangle(radius=[dp(12)], pos=vignette.pos, size=vignette.size)
         vignette.bind(pos=lambda inst, val, r=vignette_rect: setattr(r, "pos", inst.pos))
         vignette.bind(size=lambda inst, val, r=vignette_rect: setattr(r, "size", inst.size))
-        glyphe = Label(text=c.get("type_lot", ICONE_ETOILE), font_size=sp(13), bold=True,
+        glyphe = Label(text=c.get("type_lot", ICONE_LOT_DEFAUT), font_name=POLICE_ICONES, font_size=sp(28),
                        color=couleur_texte_badge(couleur_palier), halign="center")
-        glyphe.bind(size=lambda inst, val: setattr(inst, "text_size", val))
         vignette.add_widget(glyphe)
         ligne.add_widget(vignette)
 
@@ -2566,7 +2596,7 @@ class ConcoursFinderApp(App):
         self._lien_details_courant = c["lien"]
         self.ecran_details.clear_widgets()
 
-        page = BoxLayout(orientation="vertical", padding=(dp(16), dp(42), dp(16), dp(40)), spacing=dp(10))
+        page = BoxLayout(orientation="vertical", padding=(dp(16), dp(20), dp(16), dp(40)), spacing=dp(10))
 
         # --- Barre du haut : retour + favori ---
         barre_haut = BoxLayout(orientation="horizontal", size_hint=(1, None), height=dp(40), spacing=dp(8))
@@ -2613,7 +2643,7 @@ class ConcoursFinderApp(App):
         banniere.bind(pos=lambda inst, val: setattr(banniere_rect, "pos", inst.pos))
         banniere.bind(size=lambda inst, val: setattr(banniere_rect, "size", inst.size))
         etiquette_banniere = Label(
-            text=c.get("type_lot", ICONE_ETOILE), font_size=sp(28), bold=True,
+            text=c.get("type_lot", ICONE_LOT_DEFAUT), font_name=POLICE_ICONES, font_size=sp(48),
             color=couleur_texte_badge(couleur_palier),
         )
         banniere.add_widget(etiquette_banniere)
