@@ -1661,6 +1661,20 @@ class ConcoursFinderApp(App):
         sources RSS actives — distinct de "Options" (catégories à éviter)
         pour ne pas mélanger des réglages de nature différente."""
         contenu = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(16))
+
+        # Titre + croix de fermeture "maison" à la place du titre natif du
+        # Popup, pour une sortie explicite sans avoir à taper en dehors.
+        ligne_titre_popup = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(32))
+        lbl_titre_popup = Label(text="Paramètres", font_size=sp(18), bold=True, color=COULEUR_TEXTE,
+                                 halign="left", valign="middle")
+        lbl_titre_popup.bind(size=lambda inst, val: setattr(inst, "text_size", val))
+        ligne_titre_popup.add_widget(lbl_titre_popup)
+        bouton_fermer_x = Button(text=ICONE_FERMER, font_size=sp(14), bold=True, color=COULEUR_TEXTE,
+                                  size_hint=(None, None), size=(dp(32), dp(32)))
+        stylise_bouton(bouton_fermer_x, COULEUR_ONGLET_INACTIF, rayon=16)
+        ligne_titre_popup.add_widget(bouton_fermer_x)
+        contenu.add_widget(ligne_titre_popup)
+
         scroll = ScrollView()
         grille = BoxLayout(orientation="vertical", spacing=dp(14), size_hint_y=None)
         grille.bind(minimum_height=grille.setter("height"))
@@ -1740,14 +1754,13 @@ class ConcoursFinderApp(App):
         contenu.add_widget(bouton_enregistrer)
 
         popup = Popup(
-            title="Paramètres",
+            title="",
+            separator_height=0,
             content=contenu,
             size_hint=(0.92, 0.9),
-            separator_color=COULEUR_ACCENT,
-            title_color=COULEUR_TEXTE,
             background_color=COULEUR_FOND,
-            title_size=dp(16),
         )
+        bouton_fermer_x.bind(on_press=lambda inst: popup.dismiss())
 
         def _enregistrer(inst):
             theme_avant = self.parametres.get("theme_clair", False)
@@ -1928,8 +1941,11 @@ class ConcoursFinderApp(App):
             scroll.add_widget(grille)
             contenu.add_widget(scroll)
 
-        bouton_fermer = Button(text="Fermer", bold=True, color=COULEUR_TEXTE, size_hint_y=None, height=dp(50))
-        stylise_bouton(bouton_fermer, COULEUR_ONGLET_INACTIF, rayon=14)
+        # Couleur accent (au lieu du gris terne des boutons secondaires) pour
+        # que "Fermer" ressorte vraiment au premier coup d'œil dans la popup.
+        bouton_fermer = Button(text=f"{ICONE_FERMER} Fermer", bold=True, font_size=sp(14),
+                                color=COULEUR_TEXTE_SUR_ACCENT, size_hint_y=None, height=dp(52))
+        stylise_bouton(bouton_fermer, COULEUR_ACCENT, rayon=14)
         contenu.add_widget(bouton_fermer)
 
         popup = Popup(
@@ -2435,8 +2451,8 @@ class ConcoursFinderApp(App):
     def _ajouter_ligne_concours(self, i, c):
         libelle_palier, couleur_palier, icone_palier = infos_palier(c["score"])
 
-        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=dp(10),
-                           padding=(dp(10), dp(10), dp(12), dp(10)))
+        ligne = BoxLayout(orientation="horizontal", size_hint_y=None, spacing=dp(8),
+                           padding=(dp(8), dp(8), dp(10), dp(8)))
 
         with ligne.canvas.before:
             Color(*COULEUR_CARTE_A)
@@ -2451,25 +2467,23 @@ class ConcoursFinderApp(App):
 
         ligne.bind(pos=_sync_fond, size=_sync_fond)
 
-        # --- Vignette : image réelle du flux si disponible (rare pour Google
-        # Actualités, plus fréquent sur GrattWeb/Concours.fr), sinon pastille
-        # colorée par palier avec une étoile en filet de sécurité visuel. ---
-        TAILLE_VIGNETTE = dp(64)
+        # --- Vignette : icône du type de lot détecté sur fond coloré par palier. ---
+        TAILLE_VIGNETTE = dp(52)
         vignette = BoxLayout(size_hint=(None, None), size=(TAILLE_VIGNETTE, TAILLE_VIGNETTE))
         with vignette.canvas.before:
             Color(*couleur_palier)
-            vignette_rect = RoundedRectangle(radius=[dp(12)], pos=vignette.pos, size=vignette.size)
+            vignette_rect = RoundedRectangle(radius=[dp(10)], pos=vignette.pos, size=vignette.size)
         vignette.bind(pos=lambda inst, val, r=vignette_rect: setattr(r, "pos", inst.pos))
         vignette.bind(size=lambda inst, val, r=vignette_rect: setattr(r, "size", inst.size))
-        glyphe = Label(text=c.get("type_lot", ICONE_LOT_DEFAUT), font_name=POLICE_ICONES, font_size=sp(28),
+        glyphe = Label(text=c.get("type_lot", ICONE_LOT_DEFAUT), font_name=POLICE_ICONES, font_size=sp(22),
                        color=couleur_texte_badge(couleur_palier), halign="center")
         vignette.add_widget(glyphe)
         ligne.add_widget(vignette)
 
         # --- Contenu principal (badge + titre + méta), prend toute la place restante ---
-        contenu = BoxLayout(orientation="vertical", spacing=dp(4), size_hint_y=None)
+        contenu = BoxLayout(orientation="vertical", spacing=dp(3), size_hint_y=None)
 
-        ligne_badge = BoxLayout(size_hint_y=None, height=dp(20), spacing=dp(6))
+        ligne_badge = BoxLayout(size_hint_y=None, height=dp(18), spacing=dp(6))
 
         texte_badge = f"{icone_palier} {libelle_palier} - {c['score']} pts" if icone_palier else f"{libelle_palier} - {c['score']} pts"
         badge = Label(
@@ -2478,7 +2492,7 @@ class ConcoursFinderApp(App):
             bold=True,
             color=couleur_texte_badge(couleur_palier),
             size_hint=(None, None),
-            height=dp(20),
+            height=dp(18),
             halign="center",
             valign="middle",
         )
@@ -2503,7 +2517,7 @@ class ConcoursFinderApp(App):
                     bold=True,
                     color=(1, 1, 1, 1),
                     size_hint=(None, None),
-                    size=(dp(64), dp(20)),
+                    size=(dp(64), dp(18)),
                     halign="center",
                     valign="middle",
                 )
@@ -2523,12 +2537,15 @@ class ConcoursFinderApp(App):
             halign="left",
             valign="top",
             size_hint_y=None,
-            font_size=sp(15),
+            font_size=sp(14),
             bold=True,
             background_color=(0, 0, 0, 0),
             background_normal="",
             background_down="",
             color=COULEUR_TEXTE,
+            max_lines=2,
+            shorten=True,
+            shorten_from="right",
         )
 
         # --- Méta : échéance textuelle sous le titre, façon mockup ---
@@ -2540,14 +2557,21 @@ class ConcoursFinderApp(App):
         )
         meta.bind(size=lambda inst, val: setattr(inst, "text_size", val))
 
+        # Zone d'actions (favori + suppression) : hauteur fixe connue à l'avance,
+        # prise en compte dans le calcul de hauteur de la carte ci-dessous pour
+        # qu'elle ne déborde jamais au-dessus de la carte (bug corrigé : avant,
+        # size_hint_y=1 l'étirait sur toute la hauteur de `ligne`, y compris son
+        # padding, ce qui faisait dépasser le bouton favori au-dessus du cadre).
+        HAUTEUR_ACTIONS = dp(36 + 4 + 40)
+
         def _update_text_size(instance, width, item=item):
             item.text_size = (width - dp(6), None)
 
         def _update_hauteurs(instance, texture_size, ligne=ligne, contenu=contenu, item=item, meta=meta):
             item.height = texture_size[1]
-            hauteur_contenu = texture_size[1] + dp(20) + dp(4) + meta.height + (dp(4) if meta_texte else 0)
+            hauteur_contenu = texture_size[1] + dp(18) + dp(3) + meta.height + (dp(3) if meta_texte else 0)
             contenu.height = hauteur_contenu
-            ligne.height = max(hauteur_contenu, TAILLE_VIGNETTE) + dp(20)
+            ligne.height = max(hauteur_contenu, TAILLE_VIGNETTE, HAUTEUR_ACTIONS) + dp(16)
 
         item.bind(width=_update_text_size)
         item.bind(texture_size=_update_hauteurs)
@@ -2558,16 +2582,17 @@ class ConcoursFinderApp(App):
         ligne.add_widget(contenu)
 
         # --- Actions secondaires, regroupées à droite (favori en icône, puis suppression) ---
-        actions = BoxLayout(orientation="vertical", size_hint=(None, 1), width=dp(48), spacing=dp(6))
+        actions = BoxLayout(orientation="vertical", size_hint=(None, None), width=dp(44),
+                             height=HAUTEUR_ACTIONS, spacing=dp(4))
 
         est_favori = self._est_favori(c["lien"])
         bouton_fav = Button(
             text=ICONE_FAVORI_PLEIN if est_favori else ICONE_FAVORI_VIDE,
-            font_size=sp(10), bold=True,
+            font_size=sp(9), bold=True,
             color=COULEUR_TEXTE_SUR_ACCENT if est_favori else COULEUR_TEXTE,
-            size_hint=(None, None), size=(dp(40), dp(40)),
+            size_hint=(None, None), size=(dp(36), dp(36)),
         )
-        stylise_bouton(bouton_fav, COULEUR_ACCENT if est_favori else COULEUR_ONGLET_INACTIF, rayon=16)
+        stylise_bouton(bouton_fav, COULEUR_ACCENT if est_favori else COULEUR_ONGLET_INACTIF, rayon=14)
 
         def _on_press_fav(inst, c=c, bouton_fav=bouton_fav):
             nouvel_etat = self._basculer_favori(c)
@@ -2578,9 +2603,11 @@ class ConcoursFinderApp(App):
         bouton_fav.bind(on_press=_on_press_fav)
         actions.add_widget(bouton_fav)
 
-        # Zone tactile élargie à dp(44) (minimum recommandé Android/WCAG pour une
-        # cible tactile fiable) au lieu des dp(28) d'origine, trop petits.
-        case = CheckBox(size_hint=(None, None), size=(dp(44), dp(44)), color=COULEUR_TEXTE)
+        # dp(40) : toujours au-dessus du minimum recommandé Android/WCAG (48dp
+        # visait plus large, mais la carte compacte ne peut pas se permettre
+        # dp(48) supplémentaires — dp(40) reste un net progrès sur les dp(28)
+        # d'origine, trop petits).
+        case = CheckBox(size_hint=(None, None), size=(dp(40), dp(40)), color=COULEUR_TEXTE)
         case.bind(active=lambda inst, valeur, lien=c["lien"], ligne=ligne:
                   self._supprimer_concours(lien, ligne) if valeur else None)
         actions.add_widget(case)
